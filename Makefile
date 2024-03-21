@@ -1,4 +1,4 @@
-CC=g++ -g -Wall -fno-builtin -std=c++17
+CC=g++ -g -Wall -fno-builtin -std=c++17 -D_XOPEN_SOURCE
 
 UNAME := $(shell uname -s)
 ifeq ($(UNAME),Darwin)
@@ -11,7 +11,7 @@ else
 endif
 
 # List of source files for your pager
-PAGER_SOURCES=file1.cpp file2.cpp
+PAGER_SOURCES=pager.cpp
 
 # Generate the names of the pager's object files
 PAGER_OBJS=${PAGER_SOURCES:.cpp=.o}
