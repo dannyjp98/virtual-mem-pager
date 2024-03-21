@@ -1,4 +1,5 @@
 #include "vm_pager.h"
+#include "vm_arena.h"
 #include <unordered_map>
 
 /*
@@ -85,25 +86,9 @@ void* vm_map(const char* filename, unsigned int block){
     }
 }
 
-int file_read(const char* filename, unsigned int block, void* buf){
-    if(filename == nullptr){ // swap backed page
-
-    } else {
-
-    }
-}
-
-int file_write(const char* filename, unsigned int block, const void* buf){
-
-}
-
 // new functions
 
 // call evict when you
 void evict(){
     // clock algorithm
-    int idx = 0;
-    while(){
-        idx = (idx+1) % PT_size;
-    }
 }
