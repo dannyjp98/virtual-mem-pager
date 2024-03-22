@@ -1,4 +1,5 @@
 #include "vm_pager.h"
+#include "vm_arena.h"
 #include <unordered_map>
 
 /*
@@ -48,6 +49,7 @@ std::unordered_map<int, page_table_entry_t*> pid_address;
 
 void vm_init(unsigned int memory_pages, unsigned int swap_blocks){
     //page_table_base_register = first address space initialized
+
 }
 
 
@@ -64,12 +66,6 @@ int vm_fault(const void* addr, bool write_flag){
     // When does vm fault get called?
     // 1. not appropriate access?
     // 2. addr not valid
-
-    if(write_flag){
-        // MUST modify write_enable AND read_enable to 1
-    } else {
-        // MUST modify read_enable to 1
-    }
 }
 
 void vm_destroy(){
@@ -85,25 +81,9 @@ void* vm_map(const char* filename, unsigned int block){
     }
 }
 
-int file_read(const char* filename, unsigned int block, void* buf){
-    if(filename == nullptr){ // swap backed page
-
-    } else {
-
-    }
-}
-
-int file_write(const char* filename, unsigned int block, const void* buf){
-
-}
-
 // new functions
 
 // call evict when you
 void evict(){
     // clock algorithm
-    int idx = 0;
-    while(){
-        idx = (idx+1) % PT_size;
-    }
 }
