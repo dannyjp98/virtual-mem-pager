@@ -2,6 +2,8 @@
 #include "vm_arena.h"
 #include <unordered_map>
 
+#include <cassert>
+
 /*
 each process has its own 1 level page table (1D array)
 when a diff process runs -> swap to its page table (with pid - hashmap? pid to page table array)
@@ -41,25 +43,51 @@ recommendations:
 
 */
 
+static pid_t current_pid = -1;
+
 page_table_entry_t PT[32];
-std::unordered_map<int, page_table_entry_t*> pid_address;
+
+//page table is 256 (arena size / page size)
+std::unordered_map<pid_t, page_table_entry_t*> page_tables;
+
+int memory_pages = 0;
+int swap_blocks = 0;
 
 // block permissions for swap files: block -> pid authority hashmap
+// buf must be size of a page exactly
+void populate_physmem(int block, char* buf){
+    assert(block < memory_pages);
 
+    //zero out memory
+    bzero(static_cast<char *>(vm_physmem)[VM_PAGESIZE * block], VM_PAGESIZE);
+
+    //populate with buffer
+    for(auto i = 0; i < VM_PAGESIZE; ++i){
+        static_cast<char *>(vm_physmem)[i] = buf[i];
+    }
+}
 
 void vm_init(unsigned int memory_pages, unsigned int swap_blocks){
-    //page_table_base_register = first address space initialized
+    //make zero page
+    populate_physmem(0, '\0');
+    
 
 }
 
 
 int vm_create(pid_t parent_pid, pid_t child_pid){
-
+    // initialize new page table for pid
+    page_table_entry_t* arr = new page_table_entry_t[256];
+    page_tables[child_pid] = arr;
 }
 
 void vm_switch(pid_t pid){
-    // page_table_base_register = pid_addresses[pid];
-    // set current_pid = pid;
+    // set current pid
+    current_pid = pid;
+
+    // switch PTBR to be correct PT
+    page_table_base_register = page_tables[pid];
+
 }
 
 int vm_fault(const void* addr, bool write_flag){
