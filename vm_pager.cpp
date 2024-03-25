@@ -142,6 +142,8 @@ int vm_create(pid_t parent_pid, pid_t child_pid){
         arr2[i].valid = 0;
         arr2[i].state = 0;
     }
+    return 0;
+    //check if we only return 0 for 4 credit
 }
 
 void vm_switch(pid_t pid){
@@ -204,7 +206,7 @@ int vm_fault(const void* addr, bool write_flag){
             vpn_d.pte->read_enable = 1;
             vpn_d.pte->write_enable = 1;
         }
-        else if(vpn_d.state = 1){
+        else if(vpn_d.state == 1){
             if(write_flag){
                 // allocate new PPN 
                 int ppn = get_free_ppn();
@@ -222,7 +224,7 @@ int vm_fault(const void* addr, bool write_flag){
                 ppn_clock[ppn].vpn_list.push_back(&vpn_data_tables[current_pid][vpn]); //check this
             }
         }
-        else if(vpn_d.state = 0){
+        else if(vpn_d.state == 0){
             
         }
     }
@@ -231,6 +233,8 @@ int vm_fault(const void* addr, bool write_flag){
     }
     
     ppn_clock[vpn_d.pte->ppage].referenced = true;
+
+    //return something here
     
 }
 
