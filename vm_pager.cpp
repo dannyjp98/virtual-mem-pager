@@ -2,6 +2,7 @@
 #include "vm_arena.h"
 #include <unordered_map>
 #include <vector>
+#include <strings.h>
 
 #include <cassert>
 
@@ -99,7 +100,8 @@ void populate_physmem(int block, char* buf){
     // assert(block < memory_pages);
 
     //zero out memory
-    bzero(reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(vm_physmem) + (VM_PAGESIZE * block)), VM_PAGESIZE);
+    memset(reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(vm_physmem) + (VM_PAGESIZE * block)), 0, VM_PAGESIZE);
+   //bzero(reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(vm_physmem) + (VM_PAGESIZE * block)), VM_PAGESIZE);
 
     //populate with buffer
     for(auto i = 0; i < VM_PAGESIZE; ++i){
@@ -110,7 +112,8 @@ void populate_physmem(int block, char* buf){
 void vm_init(unsigned int memory_pages, unsigned int swap_blocks){
     // make zero page as 1st block
     char buffer[VM_PAGESIZE];
-    bzero(buffer, VM_PAGESIZE);
+    memset(buffer, 0, VM_PAGESIZE);
+    //bzero(buffer, VM_PAGESIZE); // maybe switch to memset
     populate_physmem(0, buffer);
 
     // configure mem pages and swap blocks
