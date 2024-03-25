@@ -11,7 +11,7 @@ else
 endif
 
 # List of source files for your pager
-PAGER_SOURCES=pager.cpp
+PAGER_SOURCES=vm_pager.cpp
 
 # Generate the names of the pager's object files
 PAGER_OBJS=${PAGER_SOURCES:.cpp=.o}

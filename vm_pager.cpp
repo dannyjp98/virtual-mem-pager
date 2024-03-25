@@ -2,6 +2,7 @@
 #include "vm_arena.h"
 #include <unordered_map>
 #include <vector>
+#include <strings.h>
 
 #include <cassert>
 
