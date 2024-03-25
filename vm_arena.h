@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 /* page size for the machine */
-static constexpr unsigned int VM_PAGESIZE = 65536;
+static constexpr unsigned int VM_PAGESIZE = 65536; // 0x10000
 
 /* virtual address at which the application's arena starts */
 static void* const VM_ARENA_BASEADDR = reinterpret_cast<void *>(0x600000000);
