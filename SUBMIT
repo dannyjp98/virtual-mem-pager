@@ -2,5 +2,3 @@ vm_pager.cpp
 vm_pager.h
 vm_arena.h
 vm_app.h
-test1.cpp
-test2.cpp
