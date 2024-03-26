@@ -146,7 +146,7 @@ void clear_clock(int ppn){
     ppn_clock[ppn].valid = false;
     ppn_clock[ppn].dirty = false;
     ppn_clock[ppn].referenced = false;
-    ppn_clock[ppn].vpn_list.clear();
+    ppn_clock[ppn].vpn_list = {};
 }
 
 void* ppn_to_ptr(int ppn){
@@ -258,12 +258,14 @@ int evict(){
         }
         clock_index = (clock_index + 1) % ppn_clock.size();
     }
-    auto victim = ppn_clock[clock_index];
+    auto &victim = ppn_clock[clock_index];
     // copy data back to disk
-    auto &refs = victim.vpn_list;
     bool toWrite = false;
     vpn_data *writeVpn;
-    for(auto cur_vpn : refs){
+    // cout << "gonna iterate vpn list" << endl;
+    for(auto& cur_vpn : victim.vpn_list){
+        // cout << "here" << endl;
+        // cout << cur_vpn->block << endl;
         // if(cur_vpn->state == 6){
         //     break;
         // }
@@ -279,19 +281,19 @@ int evict(){
         cur_vpn->pte->write_enable = 0;
         cur_vpn->state = 4;
     }
-    if(toWrite){
-        if(writeVpn->filename[0] == 0){                
-            file_write(nullptr, writeVpn->block, reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(vm_physmem) + clock_index));
-        } // two VPNs are written
-        else{
-            file_write(writeVpn->filename, writeVpn->block, reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(vm_physmem) + clock_index));
-        }
-    }
+    // if(toWrite){
+    //     if(writeVpn->filename[0] == 0){                
+    //         file_write(nullptr, writeVpn->block, reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(vm_physmem) + clock_index));
+    //     } // two VPNs are written
+    //     else{
+    //         file_write(writeVpn->filename, writeVpn->block, reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(vm_physmem) + clock_index));
+    //     }
+    // }
     //
     clear_clock(clock_index);
     //ppn_clock[clock_index].valid = false;
     //clear out vpn list
-    
+    cout << " SUCCESSFULLY EVICTED " << clock_index << endl;
     return clock_index;
 }
 
@@ -345,9 +347,15 @@ int reserve_ppn(int vpn, bool write_flag=true){
     ppn_clock[ppn].valid = true;
     ppn_clock[ppn].referenced = true;
 
-    copy_to_refs(&vpn_data_tables[current_pid][vpn]);
+    
 
-    ppn_clock[ppn].vpn_list = file_reservations[model_page.filename][model_page.block];
+    if(model_page.filename[0] == 0){
+        ppn_clock[ppn].vpn_list.push_back(&model_page);
+    }
+    else{
+        copy_to_refs(&vpn_data_tables[current_pid][vpn]);
+        ppn_clock[ppn].vpn_list = file_reservations[model_page.filename][model_page.block];
+    }
 
     return ppn;
 }
@@ -401,7 +409,7 @@ int vm_fault(const void* addr, bool write_flag){
     }
     if(vpn_d.state == 1){
         if(write_flag){
-            reserve_ppn(vpn, false);
+            reserve_ppn(vpn, write_flag);
         }
     }
     if(vpn_d.state == 0){
@@ -564,9 +572,12 @@ void* vm_map(const char* filename, unsigned int block){
         if(reserved_block == -1) return nullptr;
         int vpn = reserve_next_vpn(reserved_block);
         if(vpn == -1) return nullptr;
+        cout << "MAPPING " << vpn << " INTO BLOCK " << reserved_block << " PTR: " << vpn_to_ptr(vpn) << endl;
+
         std::memset(vpn_data_tables[current_pid][vpn].filename, 0, sizeof(vpn_data_tables[current_pid][vpn].filename));
         return vpn_to_ptr(vpn);
     } else { // FILE BACKED
+        cout << "ATTEMPING FILE BACKED MAP" << endl;
         // see if virtual address is available
         int fn_vpn = translate_addr(filename);
         if(fn_vpn == -1) return nullptr;
