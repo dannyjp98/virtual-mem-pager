@@ -6,6 +6,9 @@
 
 #include <cassert>
 
+using std::cout;
+using std::endl;
+
 /*
 each process has its own 1 level page table (1D array)
 when a diff process runs -> swap to its page table (with pid - hashmap? pid to page table array)
@@ -132,7 +135,6 @@ void vm_init(unsigned int memory_pages, unsigned int swap_blocks){
     swap_reservations.resize(swap_blocks, -1);
     
     ppn_clock.resize(memory_pages, {false, {}, false});
-    std::cout << "INITIALIZED PAGER" << std::endl;
 }
 
 
@@ -420,10 +422,14 @@ void* vm_map(const char* filename, unsigned int block){
         if(vpn == -1) return nullptr;
         return vpn_to_ptr(vpn);
     } else {
+        cout << "here in map" << endl;;
         int vpn = reserve_next_vpn(block);
+        cout << "here 2" << endl;;
         if(vpn == -1) return nullptr;
+        cout << "here 3" << endl;;
         
         strcpy(vpn_data_tables[current_pid][vpn].filename,filename);
+        cout << "here 4" << endl;;
         auto fr = file_reservations[vpn_data_tables[current_pid][vpn].filename][block];
         if(fr.size() != 0){
             if(fr[0]->resident == true){
@@ -431,7 +437,9 @@ void* vm_map(const char* filename, unsigned int block){
                 vpn_data_tables[current_pid][vpn].state = fr[0]->state;
             }
         }
+        cout << "here 5" << endl;;
         fr.push_back(&vpn_data_tables[current_pid][vpn]);
+        cout << "here 6" << endl;;
         return vpn_to_ptr(vpn);
     }
 
