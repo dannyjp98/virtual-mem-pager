@@ -6,6 +6,9 @@
 
 #include <cassert>
 
+using std::cout;
+using std::endl;
+
 /*
 each process has its own 1 level page table (1D array)
 when a diff process runs -> swap to its page table (with pid - hashmap? pid to page table array)
@@ -62,7 +65,7 @@ struct vpn_data{
     bool valid = false;
     // bool dirty = false;
     bool resident = false;
-    char* filename = nullptr;
+    const char* filename = nullptr;
     int block = 0;
 };
 
@@ -75,7 +78,7 @@ int pm_memory_pages = 0;
 int vm_swap_blocks = 0;
 
 std::vector<pid_t> swap_reservations; // pid -> swapfile block
-std::unordered_map<char*, std::unordered_map<int,std::vector<vpn_data*>>> file_reservations;
+std::unordered_map<const char*, std::unordered_map<int,std::vector<vpn_data*>>> file_reservations;
 
 // std::vector<std::vector<pid_t>> file_reservations; // pid -> swapfile block
 
@@ -132,7 +135,6 @@ void vm_init(unsigned int memory_pages, unsigned int swap_blocks){
     swap_reservations.resize(swap_blocks, -1);
     
     ppn_clock.resize(memory_pages, {false, {}, false});
-    std::cout << "INITIALIZED PAGER" << std::endl;
 }
 
 
@@ -418,12 +420,20 @@ void* vm_map(const char* filename, unsigned int block){
         if(reserved_block == -1) return nullptr;
         int vpn = reserve_next_vpn(reserved_block);
         if(vpn == -1) return nullptr;
+        vpn_data_tables[current_pid][vpn].filename = nullptr;
         return vpn_to_ptr(vpn);
     } else {
+        
         int vpn = reserve_next_vpn(block);
         if(vpn == -1) return nullptr;
         
-        strcpy(vpn_data_tables[current_pid][vpn].filename,filename);
+        cout << "got here" << endl;
+        vpn_data_tables[current_pid][vpn].filename = filename;
+        vpn_data_tables[current_pid][vpn].resident = 0;
+        vpn_data_tables[current_pid][vpn].state = 4;
+        page_tables[vpn]->read_enable = 0;
+
+        cout << "finished setting here" << endl;
         auto fr = file_reservations[vpn_data_tables[current_pid][vpn].filename][block];
         if(fr.size() != 0){
             if(fr[0]->resident == true){
@@ -431,6 +441,7 @@ void* vm_map(const char* filename, unsigned int block){
                 vpn_data_tables[current_pid][vpn].state = fr[0]->state;
             }
         }
+        
         fr.push_back(&vpn_data_tables[current_pid][vpn]);
         return vpn_to_ptr(vpn);
     }
