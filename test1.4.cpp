@@ -4,6 +4,8 @@
 #include "vm_app.h"
 
 using std::cout;
+using std::endl;
+
 
 int main()
 {
@@ -12,7 +14,9 @@ int main()
 
     /* Write the name of the file that will be mapped */
     strcpy(filename, "lampson83.txt");
+    cout << "filename successfully set to " << filename << endl;
 
+    cout << "mapped swap file correctly" << endl;
     /* Map a page from the specified file */
     char* p = static_cast<char *>(vm_map (filename, 0));
 
