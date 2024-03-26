@@ -258,12 +258,14 @@ int evict(){
         }
         clock_index = (clock_index + 1) % ppn_clock.size();
     }
-    auto victim = ppn_clock[clock_index];
+    auto &victim = ppn_clock[clock_index];
     // copy data back to disk
-    auto &refs = victim.vpn_list;
     bool toWrite = false;
     vpn_data *writeVpn;
-    for(auto cur_vpn : refs){
+    // cout << "gonna iterate vpn list" << endl;
+    for(auto& cur_vpn : victim.vpn_list){
+        // cout << "here" << endl;
+        // cout << cur_vpn->block << endl;
         // if(cur_vpn->state == 6){
         //     break;
         // }
@@ -288,7 +290,7 @@ int evict(){
         }
     }
     //
-    clear_clock(clock_index);
+    //clear_clock(clock_index);
     //ppn_clock[clock_index].valid = false;
     //clear out vpn list
     
@@ -345,9 +347,15 @@ int reserve_ppn(int vpn, bool write_flag=true){
     ppn_clock[ppn].valid = true;
     ppn_clock[ppn].referenced = true;
 
-    copy_to_refs(&vpn_data_tables[current_pid][vpn]);
+    
 
-    ppn_clock[ppn].vpn_list = file_reservations[model_page.filename][model_page.block];
+    if(model_page.filename[0] == 0){
+        ppn_clock[ppn].vpn_list.push_back(&model_page);
+    }
+    else{
+        copy_to_refs(&vpn_data_tables[current_pid][vpn]);
+        ppn_clock[ppn].vpn_list = file_reservations[model_page.filename][model_page.block];
+    }
 
     return ppn;
 }
@@ -401,7 +409,7 @@ int vm_fault(const void* addr, bool write_flag){
     }
     if(vpn_d.state == 1){
         if(write_flag){
-            reserve_ppn(vpn, false);
+            reserve_ppn(vpn, write_flag);
         }
     }
     if(vpn_d.state == 0){
