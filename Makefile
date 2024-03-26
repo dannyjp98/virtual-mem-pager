@@ -11,7 +11,7 @@ else
 endif
 
 # List of source files for your pager
-PAGER_SOURCES=pager.cpp
+PAGER_SOURCES=vm_pager.cpp
 
 # Generate the names of the pager's object files
 PAGER_OBJS=${PAGER_SOURCES:.cpp=.o}
@@ -24,7 +24,10 @@ pager: ${PAGER_OBJS} ${LIBVMPAGER}
 	${CC} -o $@ $^
 
 # Compile an application program
-test1: test1.cpp ${LIBVMAPP}
+test1: test1.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
+test3: test1.4.cpp ${LIBVMAPP}
 	${CC} -o $@ $^ -ldl
 
 # Generic rules for compiling a source file to an object file

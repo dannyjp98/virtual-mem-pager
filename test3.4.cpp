@@ -1,30 +1,21 @@
-// test process address independence
 #include <iostream>
 #include <cstring>
 #include <unistd.h>
 #include "vm_app.h"
 
 using std::cout;
+using std::endl;
 
 int main()
 {
-    char *mymem = (char*) 0x000482;
-    strcpy(mymem, "process 1");
-
-    char *mymem = (char*) 0x000482;
-    strcpy(mymem, "process 2");
-
+    cout << "reached here" << endl;
     /* Allocate swap-backed page from the arena */
-    char* filename = static_cast<char *>(vm_map(nullptr, 0));
+    char* buffer = static_cast<char *>(vm_map(nullptr, 0));
 
     /* Write the name of the file that will be mapped */
-    strcpy(filename, "lampson83.txt");
-
-    /* Map a page from the specified file */
-    char* p = static_cast<char *>(vm_map (filename, 0));
-
+    strcpy(buffer, "asasdadiwiejfijijefijijfiejfeiaoeifnoeifneoun");
     /* Print the first part of the paper */
-    for (unsigned int i=0; i<1930; i++) {
-	    cout << p[i];
+    for (unsigned int i=0; i<30; i++) {
+	    cout << buffer[i];
     }
 }

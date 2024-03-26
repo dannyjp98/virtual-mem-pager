@@ -2,6 +2,7 @@
 #include "vm_arena.h"
 #include <unordered_map>
 #include <vector>
+#include <iostream>
 
 #include <cassert>
 
@@ -110,6 +111,12 @@ int clock_index = 0;
 //     }
 // }
 
+// HELPER FUNCTIONS 
+
+void* ppn_to_ptr(int ppn){
+    return reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(vm_physmem) + (ppn * VM_PAGESIZE));
+}
+
 void vm_init(unsigned int memory_pages, unsigned int swap_blocks){
     // make zero page as 1st block
     //char buffer[VM_PAGESIZE];
@@ -125,6 +132,7 @@ void vm_init(unsigned int memory_pages, unsigned int swap_blocks){
     swap_reservations.resize(swap_blocks, -1);
     
     ppn_clock.resize(memory_pages, {false, {}, false});
+    std::cout << "INITIALIZED PAGER" << std::endl;
 }
 
 
@@ -166,60 +174,67 @@ int translate_addr(const void* addr){
 
 // gets free ppn or makes a slot if not available
 int reserve_ppn(int vpn, bool read_only=false){
+    int ppn = -1;
+    
+    //-------------GET + EVICT---------//
+    
     // check for lowest empty ppn
     for(int i = 1; i < ppn_clock.size(); ++i){
         if(ppn_clock[i].valid == false){
             // claim ppn i
-            return i;
+            ppn = i;
         }
     }
-    // clock algorithm for eviction
-    while(ppn_clock[clock_index].referenced != false){
-        if(clock_index == 0){
-            clock_index = 1;
-            continue;
-        } 
-        auto cur = ppn_clock[clock_index];
-        // clock changes reference - modify other vp
-        ppn_clock[clock_index].referenced = false;
-        for(auto vpn_d : ppn_clock[clock_index].vpn_list){
-            if(vpn_d->state == 5){
-                vpn_d->state = 6;
-                //ppn_clock[vpn_d->pte->ppage].dirty = false;
-                //vpn_d->dirty = false;
+    if(ppn == -1){ // evict
+        // clock algorithm for eviction
+        while(ppn_clock[clock_index].referenced != false){
+            if(clock_index == 0){
+                clock_index = 1;
+                continue;
+            } 
+            auto cur = ppn_clock[clock_index];
+            // clock changes reference - modify other vp
+            ppn_clock[clock_index].referenced = false;
+            for(auto vpn_d : ppn_clock[clock_index].vpn_list){
+                if(vpn_d->state == 5){
+                    vpn_d->state = 6;
+                    //ppn_clock[vpn_d->pte->ppage].dirty = false;
+                    //vpn_d->dirty = false;
+                }
+                if(vpn_d->state == 2){
+                    vpn_d->state = 3;
+                    //ppn_clock[vpn_d->pte->ppage].dirty = true;
+                    //vpn_d->dirty = true;
+                }
+                vpn_d->pte->read_enable = 0;
+                vpn_d->pte->write_enable = 0;
             }
-            if(vpn_d->state == 2){
-                vpn_d->state = 3;
-                //ppn_clock[vpn_d->pte->ppage].dirty = true;
-                //vpn_d->dirty = true;
+            clock_index = (clock_index + 1) % ppn_clock.size();
+        }
+        auto victim = ppn_clock[clock_index];
+        // copy data back to disk
+        for(auto cur_vpn : victim.vpn_list){
+            // if(cur_vpn->state == 6){
+            //     break;
+            // }
+            if(ppn_clock[cur_vpn->pte->ppage].dirty){
+                file_write(nullptr, cur_vpn->block, reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(vm_physmem) + clock_index)); // two VPNs are written
             }
-            vpn_d->pte->read_enable = 0;
-            vpn_d->pte->write_enable = 0;
+            cur_vpn->resident = 0;
+            ppn_clock[cur_vpn->pte->ppage].dirty = false;
+            //cur_vpn->dirty = 0;
+            cur_vpn->pte->read_enable = 0;
+            cur_vpn->pte->write_enable = 0;
+            cur_vpn->state = 4;
         }
-        clock_index = (clock_index + 1) % ppn_clock.size();
+        ppn_clock[clock_index].valid = false;
+        
+        ppn = clock_index;
     }
-    auto victim = ppn_clock[clock_index];
-    // copy data back to disk
-    for(auto cur_vpn : victim.vpn_list){
-        // if(cur_vpn->state == 6){
-        //     break;
-        // }
-        if(ppn_clock[cur_vpn->pte->ppage].dirty){
-            file_write(nullptr, cur_vpn->block, reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(vm_physmem) + clock_index)); // two VPNs are written
-        }
-        cur_vpn->resident = 0;
-        ppn_clock[cur_vpn->pte->ppage].dirty = false;
-        //cur_vpn->dirty = 0;
-        cur_vpn->pte->read_enable = 0;
-        cur_vpn->pte->write_enable = 0;
-        cur_vpn->state = 4;
-    }
-    ppn_clock[clock_index].valid = false;
-    
-    int ppn = clock_index;
+
+    //-------------SET---------//
 
     vpn_data_tables[current_pid][vpn].resident = 1;
-    
     if(!read_only){
         ppn_clock[clock_index].dirty = 1;
         page_tables[current_pid][vpn].write_enable = 1;
@@ -235,6 +250,7 @@ int reserve_ppn(int vpn, bool read_only=false){
     ppn_clock[ppn].valid = true;
     ppn_clock[ppn].referenced = true;
     ppn_clock[ppn].vpn_list.push_back(&vpn_data_tables[current_pid][vpn]);
+    return ppn;
 }
 
 int vm_fault(const void* addr, bool write_flag){
@@ -268,7 +284,9 @@ int vm_fault(const void* addr, bool write_flag){
     }
     if(vpn_d.state == 4){
         if(write_flag){
-            reserve_ppn(vpn, false);
+            int ppn = reserve_ppn(vpn, false);
+            auto &cur = vpn_data_tables[current_pid][vpn];
+            file_read(cur.filename, cur.block, ppn_to_ptr(ppn));
         }
         else{
             // go to state 5
@@ -375,6 +393,7 @@ int reserve_swap(){
 void* vpn_to_ptr(int vpn){
     return reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(VM_ARENA_BASEADDR) + (vpn * VM_PAGESIZE));
 }
+
 // reserves next vpn
 int reserve_next_vpn(int reserved_block){
     for(int i = 0; i < 256; ++i){
