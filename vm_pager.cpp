@@ -401,7 +401,7 @@ int vm_fault(const void* addr, bool write_flag){
     }
     if(vpn_d.state == 1){
         if(write_flag){
-            reserve_ppn(vpn, false);
+            reserve_ppn(vpn, write_flag);
         }
     }
     if(vpn_d.state == 0){
