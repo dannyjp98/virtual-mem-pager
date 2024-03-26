@@ -132,7 +132,6 @@ void vm_init(unsigned int memory_pages, unsigned int swap_blocks){
     swap_reservations.resize(swap_blocks, -1);
     
     ppn_clock.resize(memory_pages, {false, {}, false});
-    std::cout << "INITIALIZED PAGER" << std::endl;
 }
 
 
