@@ -1,8 +1,10 @@
 #include "vm_pager.h"
 #include "vm_arena.h"
+#include <string.h>
 #include <unordered_map>
 #include <vector>
 #include <iostream>
+#include <cstring>
 
 #include <cassert>
 
@@ -65,7 +67,7 @@ struct vpn_data{
     bool valid = false;
     // bool dirty = false;
     bool resident = false;
-    const char* filename;
+    char filename[VM_PAGESIZE];
     int block = 0;
 };
 
@@ -347,6 +349,21 @@ int vm_fault(const void* addr, bool write_flag){
 }
 
 void vm_destroy(){
+// clear up
+
+//both:
+// remove vpns from clock vpn list
+//if clock vpn list empty, set valid to false
+
+//file:
+// file reservations
+//remove vpns from file reservations of given filename and block
+//if this map entry vecotr is size 0, remove from unordered map
+
+//swap:
+//remove from swap reservation
+//make another able to be allocated here
+
  //clear up memory for corresponding PID address space
 
     // remove from file reservations
@@ -375,6 +392,9 @@ void vm_destroy(){
                     }
                     vec.erase(vec.begin() + i);
                     --i;
+
+                    // erase if empty vec
+                    if(vec.size() == 0) file_reservations[cur.filename].erase(cur.block);
                 }
             }
         }
@@ -431,35 +451,59 @@ int reserve_next_vpn(int reserved_block){
 }
 
 void* vm_map(const char* filename, unsigned int block){
-    if(filename == nullptr){ // swap backed page
+    if(filename == nullptr){ // SWAP BACKED
         // reserve spot in swap file
+        cout << "start" << endl;
         int reserved_block = reserve_swap();
         if(reserved_block == -1) return nullptr;
         int vpn = reserve_next_vpn(reserved_block);
         if(vpn == -1) return nullptr;
-        vpn_data_tables[current_pid][vpn].filename = nullptr;
+        cout << "attmpting to str cpy" << endl;
+        strcpy(vpn_data_tables[current_pid][vpn].filename, nullptr);
+        cout << "finished strcpy" << endl;
         return vpn_to_ptr(vpn);
-    } else {
-        char* pptr = static_cast<char*>(vptr_to_ptr(filename));
+    } else { // FILE BACKED
+        // see if virtual address is available
+        int fn_vpn = translate_addr(filename);
+        if(page_table_base_register[fn_vpn].read_enable == 0){
+            vm_fault(filename, 0);
+        }
+        int fn_ppn = page_table_base_register[fn_vpn].ppage;
+
+        // copy filename into vpn data
+        const char* filen = static_cast<const char*>(static_cast<const char*>(vm_physmem) + (fn_ppn*VM_PAGESIZE));
+
         int vpn = reserve_next_vpn(block);
         if(vpn == -1) return nullptr;
         
-        vpn_data_tables[current_pid][vpn].filename = pptr;
-        //cout << "successfully set filename to " << vpn_data_tables[current_pid][vpn].filename << endl;
-        vpn_data_tables[current_pid][vpn].resident = 0;
-        vpn_data_tables[current_pid][vpn].state = 4;
-        page_tables[current_pid][vpn].read_enable = 0;
+        strcpy(vpn_data_tables[current_pid][vpn].filename, filen);
 
+        //cout << "successfully set filename to " << vpn_data_tables[current_pid][vpn].filename << endl;
+        
         auto fr = file_reservations[vpn_data_tables[current_pid][vpn].filename][block];
         if(fr.size() != 0){
-            if(fr[0]->resident == true){
+            if(fr[0]->resident == true){ // if another VP has same file and block
+                // copy PTE
                 page_tables[current_pid][vpn].ppage = fr[0]->pte->ppage;
+                page_tables[current_pid][vpn].read_enable = fr[0]->pte->read_enable;
+                page_tables[current_pid][vpn].write_enable = fr[0]->pte->write_enable;
+
+                vpn_data_tables[current_pid][vpn].resident = fr[0]->resident;
                 vpn_data_tables[current_pid][vpn].state = fr[0]->state;
+
+                // add newly created vpn_data* to clock vpn_list
+                ppn_clock[page_tables[current_pid][vpn].ppage].vpn_list.push_back(&vpn_data_tables[current_pid][vpn]);
             }
+        }
+        else{
+            vpn_data_tables[current_pid][vpn].resident = 0;
+            vpn_data_tables[current_pid][vpn].state = 4;
+            vpn_data_tables[current_pid][vpn].valid = 1;
+            page_tables[current_pid][vpn].read_enable = 0;
+            page_tables[current_pid][vpn].write_enable = 0;
         }
         
         fr.push_back(&vpn_data_tables[current_pid][vpn]);
         return vpn_to_ptr(vpn);
     }
-
 }
