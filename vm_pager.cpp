@@ -263,7 +263,9 @@ int evict(){
     auto &refs = victim.vpn_list;
     bool toWrite = false;
     vpn_data *writeVpn;
+    cout << "gonna iterate vpn list" << endl;
     for(auto cur_vpn : refs){
+        cout << cur_vpn->block << endl;
         // if(cur_vpn->state == 6){
         //     break;
         // }
@@ -401,7 +403,7 @@ int vm_fault(const void* addr, bool write_flag){
     }
     if(vpn_d.state == 1){
         if(write_flag){
-            reserve_ppn(vpn, false);
+            reserve_ppn(vpn, write_flag);
         }
     }
     if(vpn_d.state == 0){
