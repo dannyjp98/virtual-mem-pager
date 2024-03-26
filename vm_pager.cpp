@@ -400,8 +400,9 @@ int vm_fault(const void* addr, bool write_flag){
         copy_to_refs(&vpn_d);
     }
     if(vpn_d.state == 1){
+        cout << "state 1" << endl;
         if(write_flag){
-            reserve_ppn(vpn, false);
+            reserve_ppn(vpn, write_flag);
         }
     }
     if(vpn_d.state == 0){
