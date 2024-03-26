@@ -126,9 +126,9 @@ void* ppn_to_ptr(int ppn){
 
 void* vptr_to_ptr(const void* addr){
     int vpn = translate_addr(addr);
-    cout << "Calculated VPN " << vpn << endl; 
+    //cout << "Calculated VPN " << vpn << endl; 
     int ppn = page_tables[current_pid][vpn].ppage;
-    cout << "Calculated PPN " << ppn << endl; 
+    //cout << "Calculated PPN " << ppn << endl; 
     return ppn_to_ptr(ppn);
 }
 
@@ -190,7 +190,7 @@ int reserve_ppn(int vpn, bool read_only=false){
     
     // check for lowest empty ppn
     for(int i = 1; i < ppn_clock.size(); ++i){
-        cout << "CHECKING " << i << endl;
+        //cout << "CHECKING " << i << endl;
         if(ppn_clock[i].valid == false){
             // claim ppn i
             ppn = i;
@@ -257,7 +257,7 @@ int reserve_ppn(int vpn, bool read_only=false){
     }
     
     page_tables[current_pid][vpn].read_enable = 1;
-    cout << "SET VPN " << vpn << " TO POINT TO PPAGE " << ppn << endl;
+    //cout << "SET VPN " << vpn << " TO POINT TO PPAGE " << ppn << endl;
     page_tables[current_pid][vpn].ppage = ppn;
 
     ppn_clock[ppn].valid = true;
@@ -304,11 +304,11 @@ int vm_fault(const void* addr, bool write_flag){
         else{
             // go to state 5
             int ppn = reserve_ppn(vpn, true);
-            cout << "succesfully claimed " << ppn << " for vpn: " << vpn << endl;
+            //cout << "succesfully claimed " << ppn << " for vpn: " << vpn << endl;
             auto &cur = vpn_data_tables[current_pid][vpn];
-            cout << "got here" << endl;
-            cout << "filename " << cur.filename << " cur block " << cur.block << " ppn " << ppn << endl;
-            cout << ppn_to_ptr(ppn) << endl;
+            //cout << "got here" << endl;
+            //cout << "filename " << cur.filename << " cur block " << cur.block << " ppn " << ppn << endl;
+            //cout << ppn_to_ptr(ppn) << endl;
             file_read(cur.filename, cur.block, ppn_to_ptr(ppn));
         }
     }
