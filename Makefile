@@ -27,7 +27,7 @@ pager: ${PAGER_OBJS} ${LIBVMPAGER}
 test1: test1.4.cpp ${LIBVMAPP}
 	${CC} -o $@ $^ -ldl
 
-test3: test1.4.cpp ${LIBVMAPP}
+test3: test3.4.cpp ${LIBVMAPP}
 	${CC} -o $@ $^ -ldl
 
 # Generic rules for compiling a source file to an object file
