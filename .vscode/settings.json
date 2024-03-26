@@ -53,6 +53,7 @@
         "variant": "cpp",
         "vector": "cpp",
         "algorithm": "cpp",
-        "cassert": "cpp"
+        "cassert": "cpp",
+        "execution": "cpp"
     }
 }
