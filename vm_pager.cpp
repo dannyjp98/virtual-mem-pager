@@ -126,11 +126,14 @@ int translate_addr(const void* addr){
 }
 
 void copy_to_refs(vpn_data* model){
+    cout << "COPYING TO REFS" << endl;
     if(model->filename[0] == 0) return;
     auto &ref_list = file_reservations[model->filename][model->block];
 
     for(auto &cur : ref_list){
         if(model == cur) continue;
+        cout << "Changing other ref " << cur->block << endl;
+
         cur->resident = model->resident;
         cur->state = model->state;
         cur->valid = model->valid;
@@ -146,18 +149,16 @@ void clear_clock(int ppn){
     ppn_clock[ppn].valid = false;
     ppn_clock[ppn].dirty = false;
     ppn_clock[ppn].referenced = false;
-    ppn_clock[ppn].vpn_list.clear();
+    ppn_clock[ppn].vpn_list = {};
 }
 
 void* ppn_to_ptr(int ppn){
-    return reinterpret_cast<void*>(static_cast<char*>(vm_physmem) + (ppn*VM_PAGESIZE));
+    return reinterpret_cast<void*>(static_cast<char*>(vm_physmem) + (ppn * VM_PAGESIZE));
 }
 
 void* vptr_to_ptr(const void* addr){
     int vpn = translate_addr(addr);
-    //cout << "Calculated VPN " << vpn << endl; 
     int ppn = page_tables[current_pid][vpn].ppage;
-    //cout << "Calculated PPN " << ppn << endl; 
     return ppn_to_ptr(ppn);
 }
 
@@ -240,6 +241,7 @@ int evict(){
             clock_index = 1;
             continue;
         } 
+
         auto cur = ppn_clock[clock_index];
         // clock changes reference - modify other vp
         ppn_clock[clock_index].referenced = false;
@@ -258,15 +260,11 @@ int evict(){
         }
         clock_index = (clock_index + 1) % ppn_clock.size();
     }
-    auto victim = ppn_clock[clock_index];
+    auto &victim = ppn_clock[clock_index];
     // copy data back to disk
-    auto &refs = victim.vpn_list;
     bool toWrite = false;
     vpn_data *writeVpn;
-    for(auto cur_vpn : refs){
-        // if(cur_vpn->state == 6){
-        //     break;
-        // }
+    for(auto& cur_vpn : victim.vpn_list){
         if(ppn_clock[cur_vpn->pte->ppage].dirty){
             //deal with eviction of file bacl
             toWrite = true;
@@ -274,25 +272,26 @@ int evict(){
         }
         cur_vpn->resident = 0;
         ppn_clock[cur_vpn->pte->ppage].dirty = false;
-        //cur_vpn->dirty = 0;
         cur_vpn->pte->read_enable = 0;
         cur_vpn->pte->write_enable = 0;
         cur_vpn->state = 4;
     }
     if(toWrite){
-        if(writeVpn->filename[0] == 0){                
-            file_write(nullptr, writeVpn->block, reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(vm_physmem) + clock_index));
+        if(writeVpn->filename[0] == 0){        
+            file_write(nullptr, writeVpn->block, ppn_to_ptr(clock_index));
         } // two VPNs are written
         else{
-            file_write(writeVpn->filename, writeVpn->block, reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(vm_physmem) + clock_index));
+            file_write(writeVpn->filename, writeVpn->block, ppn_to_ptr(clock_index));
         }
     }
     //
     clear_clock(clock_index);
     //ppn_clock[clock_index].valid = false;
     //clear out vpn list
-    
-    return clock_index;
+    cout << "EVICTED " << clock_index << endl;
+    int index_to_evict = clock_index;
+    clock_index = (clock_index + 1) % ppn_clock.size();
+    return index_to_evict;
 }
 
 
@@ -313,7 +312,6 @@ int reserve_ppn(int vpn, bool write_flag=true){
     
     // check for lowest empty ppn
     for(int i = 1; i < ppn_clock.size(); ++i){
-        //cout << "CHECKING " << i << endl;
         if(ppn_clock[i].valid == false){
             // claim ppn i
             ppn = i;
@@ -330,7 +328,7 @@ int reserve_ppn(int vpn, bool write_flag=true){
 
     model_page.resident = 1;
     if(write_flag){
-        ppn_clock[clock_index].dirty = 1;
+        ppn_clock[ppn].dirty = 1;
         model_page.pte->write_enable = 1;
         model_page.state = 2;
     }
@@ -345,9 +343,20 @@ int reserve_ppn(int vpn, bool write_flag=true){
     ppn_clock[ppn].valid = true;
     ppn_clock[ppn].referenced = true;
 
-    copy_to_refs(&vpn_data_tables[current_pid][vpn]);
+    
 
-    ppn_clock[ppn].vpn_list = file_reservations[model_page.filename][model_page.block];
+    if(model_page.filename[0] == 0){
+        ppn_clock[ppn].vpn_list.push_back(&model_page);
+    }
+    else{
+        copy_to_refs(&vpn_data_tables[current_pid][vpn]);
+        // cout << "printing file res contents" << endl;
+        // for(auto &a: file_reservations[model_page.filename][model_page.block]){
+        //     cout << a->filename << " " << a->block << endl;
+        // }
+        // ppn_clock[ppn].vpn_list.push_back(&model_page);
+        ppn_clock[ppn].vpn_list = file_reservations[model_page.filename][model_page.block];
+    }
 
     return ppn;
 }
@@ -389,7 +398,7 @@ int vm_fault(const void* addr, bool write_flag){
         }
         else{
             // TODO: what happens if file_read is -1?
-            file_read(cur.filename, cur.block, ppn_to_ptr(ppn));
+            int status = file_read(cur.filename, cur.block, ppn_to_ptr(ppn));
         }
     }
     if(vpn_d.state == 3){
@@ -401,7 +410,7 @@ int vm_fault(const void* addr, bool write_flag){
     }
     if(vpn_d.state == 1){
         if(write_flag){
-            reserve_ppn(vpn, false);
+            reserve_ppn(vpn, write_flag);
         }
     }
     if(vpn_d.state == 0){
@@ -564,6 +573,7 @@ void* vm_map(const char* filename, unsigned int block){
         if(reserved_block == -1) return nullptr;
         int vpn = reserve_next_vpn(reserved_block);
         if(vpn == -1) return nullptr;
+
         std::memset(vpn_data_tables[current_pid][vpn].filename, 0, sizeof(vpn_data_tables[current_pid][vpn].filename));
         return vpn_to_ptr(vpn);
     } else { // FILE BACKED
@@ -584,11 +594,11 @@ void* vm_map(const char* filename, unsigned int block){
         
         strcpy(vpn_data_tables[current_pid][vpn].filename, filen);
 
-        //cout << "successfully set filename to " << vpn_data_tables[current_pid][vpn].filename << endl;
         
-        auto fr = file_reservations[vpn_data_tables[current_pid][vpn].filename][block];
+        auto &fr = file_reservations[vpn_data_tables[current_pid][vpn].filename][block];
         // If reference exists already, copy it
         if(fr.size() != 0){
+            cout << "got here in this " << endl;
             page_tables[current_pid][vpn].ppage = fr[0]->pte->ppage;
             page_tables[current_pid][vpn].read_enable = fr[0]->pte->read_enable;
             page_tables[current_pid][vpn].write_enable = fr[0]->pte->write_enable;
