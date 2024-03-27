@@ -8,23 +8,34 @@ using std::cout;
 
 int main()
 {
-    char *mymem = (char*) 0x000482;
-    strcpy(mymem, "process 1");
+    char* buffer1 = static_cast<char *>(vm_map(nullptr, 0));
+    char* buffer2 = static_cast<char *>(vm_map(nullptr, 0));
+    char* buffer3 = static_cast<char *>(vm_map(nullptr, 0));
+    char* buffer4 = static_cast<char *>(vm_map(nullptr, 0));
+    //char* buffer5 = static_cast<char *>(vm_map(nullptr, 0));
 
-    char *mymem = (char*) 0x000482;
-    strcpy(mymem, "process 2");
 
     /* Allocate swap-backed page from the arena */
-    char* filename = static_cast<char *>(vm_map(nullptr, 0));
 
     /* Write the name of the file that will be mapped */
-    strcpy(filename, "lampson83.txt");
+    strcpy(buffer1, "buffer1");
+    strcpy(buffer2, "buffer2");
+    strcpy(buffer3, "buffer3");
+    strcpy(buffer4, "buffer4");
+    //strcpy(buffer5, "buffer5");
 
     /* Map a page from the specified file */
-    char* p = static_cast<char *>(vm_map (filename, 0));
+    strcpy(buffer1, "buffer1 again");
 
     /* Print the first part of the paper */
-    for (unsigned int i=0; i<1930; i++) {
-	    cout << p[i];
+    for (unsigned int i=0; i<10; i++) {
+	    cout << buffer1[i];
+    }
+    strcpy(buffer1, "buffer2");
+    for (unsigned int i=0; i<7; i++) {
+	    cout << buffer2[i];
+    }
+    for (unsigned int i=0; i<7; i++) {
+	    cout << buffer4[i];
     }
 }
