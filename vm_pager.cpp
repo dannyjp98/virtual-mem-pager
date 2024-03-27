@@ -116,6 +116,15 @@ int clock_index = 0;
 // }
 
 // HELPER FUNCTIONS 
+
+void print_mem(int index){
+    cout << "PRINTING OUT INDEX: " << index << endl;
+    for(int i = 0; i<VM_PAGESIZE; i++){
+        cout << static_cast<char*>(vm_physmem) + ((index * VM_PAGESIZE) + i);
+    }
+    cout << endl;
+}
+
 int translate_addr(const void* addr){
     if(reinterpret_cast<const uintptr_t>(addr) < reinterpret_cast<const uintptr_t>(VM_ARENA_BASEADDR)) return -1;
     if(reinterpret_cast<const uintptr_t>(addr) >= reinterpret_cast<const uintptr_t>(VM_ARENA_BASEADDR) + VM_ARENA_SIZE) return -1;
@@ -393,7 +402,6 @@ int vm_fault(const void* addr, bool write_flag){
             file_read(nullptr, cur.block, ppn_to_ptr(ppn));
         }
         else{
-            // TODO: what happens if file_read is -1?
             file_read(cur.filename, cur.block, ppn_to_ptr(ppn));
         }
     }
@@ -405,8 +413,17 @@ int vm_fault(const void* addr, bool write_flag){
         copy_to_refs(&vpn_d);
     }
     if(vpn_d.state == 1){
+        // cout << "before:" << endl;
+        // print_mem(1);
+        // cout << endl;
         if(write_flag){
-            reserve_ppn(vpn, write_flag);
+            int ppn = reserve_ppn(vpn, write_flag);
+            // zero new ppn out
+            memset(ppn_to_ptr(ppn), 0, VM_PAGESIZE);
+            // cout << "after:" << endl;
+            // print_mem(0);
+            // print_mem(1);
+            // cout << endl;
         }
     }
     if(vpn_d.state == 0){
@@ -568,6 +585,7 @@ void* vm_map(const char* filename, unsigned int block){
         return vpn_to_ptr(vpn);
     } else { // FILE BACKED
         // see if virtual address is available
+        //cout << "attempting to read virtual addr " << filename << endl;
         int fn_vpn = translate_addr(filename);
         if(fn_vpn == -1) return nullptr;
 

@@ -36,6 +36,9 @@ test3: test3.4.cpp ${LIBVMAPP}
 test4: test4.4.cpp ${LIBVMAPP}
 	${CC} -o $@ $^ -ldl
 
+testlab1: testlab1.2.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
 # Generic rules for compiling a source file to an object file
 %.o: %.cpp
 	${CC} -c $<
