@@ -13,7 +13,7 @@ int main()
     char* buffer1 = static_cast<char *>(vm_map(nullptr, 0));
     char* buffer2 = static_cast<char *>(vm_map(nullptr, 0));
     char* buffer3 = static_cast<char *>(vm_map(nullptr, 0));
-    char* buffer4 = static_cast<char *>(vm_map(nullptr, 0));
+    //char* buffer4 = static_cast<char *>(vm_map(nullptr, 0));
 
 
     cout << "reading buffer 1" << endl;
