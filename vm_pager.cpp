@@ -116,6 +116,18 @@ int clock_index = 0;
 // }
 
 // HELPER FUNCTIONS 
+
+void print_mem(int index){
+    cout << endl;
+    for(int i = 0; i<100; i++){
+        cout << static_cast<char*>(vm_physmem)[index]+i;
+    }
+    for(int i = 100; i<VM_PAGESIZE; i = i + 100){
+        cout << static_cast<char*>(vm_physmem)[index]+i;
+    }
+    cout << endl;
+}
+
 int translate_addr(const void* addr){
     if(reinterpret_cast<const uintptr_t>(addr) < reinterpret_cast<const uintptr_t>(VM_ARENA_BASEADDR)) return -1;
     if(reinterpret_cast<const uintptr_t>(addr) >= reinterpret_cast<const uintptr_t>(VM_ARENA_BASEADDR) + VM_ARENA_SIZE) return -1;
@@ -405,8 +417,18 @@ int vm_fault(const void* addr, bool write_flag){
         copy_to_refs(&vpn_d);
     }
     if(vpn_d.state == 1){
+        cout << "before:" << endl;
+        print_mem(0);
+        print_mem(1);
+        cout << endl;
         if(write_flag){
-            reserve_ppn(vpn, write_flag);
+            int ppn = reserve_ppn(vpn, write_flag);
+            // zero new ppn out
+            memset(ppn_to_ptr(ppn), 0, VM_PAGESIZE);
+            cout << "after:" << endl;
+            print_mem(0);
+            print_mem(1);
+            cout << endl;
         }
     }
     if(vpn_d.state == 0){
