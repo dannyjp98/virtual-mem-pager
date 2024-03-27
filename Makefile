@@ -1,4 +1,4 @@
-CC=g++ -g -Wall -fno-builtin -std=c++17 -D_XOPEN_SOURCE
+CC=g++ -g -Wall -fno-builtin -std=c++17
 
 UNAME := $(shell uname -s)
 ifeq ($(UNAME),Darwin)
