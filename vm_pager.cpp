@@ -426,14 +426,13 @@ int vm_fault(const void* addr, bool write_flag){
         copy_to_refs(&vpn_d);
     }
     if(vpn_d.state == 4){
-
+        cout << "STATE 4" << endl;
         int ppn = reserve_ppn(vpn, write_flag);
         
         auto &cur = vpn_data_tables[current_pid][vpn];
         int status = 0;
         if(cur.filename == ""){
             status = file_read(nullptr, cur.block, ppn_to_ptr(ppn));
-            
         }
         else{
             status = file_read(cur.filename.c_str(), cur.block, ppn_to_ptr(ppn));
@@ -442,8 +441,8 @@ int vm_fault(const void* addr, bool write_flag){
             ppn_clock[vpn_d.pte->ppage].valid = false;
             ppn_clock[vpn_d.pte->ppage].referenced = true;
             cur.valid = false;
-            cur.pte->write_enable = false;
-            cur.pte->read_enable = false;
+            cur.pte->write_enable = 0;
+            cur.pte->read_enable = 0;
             return -1;
         }
     }
