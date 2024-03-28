@@ -174,6 +174,7 @@ void copy_to_refs(vpn_data* model){
     if(model->filename == "") return;
     auto &ref_list = file_reservations[model->filename][model->block];
 
+    cout << "COPYING WRITE ENABLE: " << model->pte->write_enable << endl;
     for(auto &cur : ref_list){
         if(model == cur) continue;
 
@@ -181,6 +182,8 @@ void copy_to_refs(vpn_data* model){
         cur->state = model->state;
         cur->valid = model->valid;
         cur->pte->read_enable = model->pte->read_enable;
+        cout << "COPYING REF WRITE ENABLE: " << model->pte->write_enable << endl;
+
         cur->pte->write_enable = model->pte->write_enable;
         cur->pte->ppage = model->pte->ppage;
     }
@@ -402,8 +405,9 @@ int vm_fault(const void* addr, bool write_flag){
     // fetch vpn_data corresponding to addr
     int vpn = translate_addr(addr);
     auto &vpn_d = vpn_data_tables[current_pid][vpn];
-    
+    cout << "VPN: " << vpn << " STATE: " << vpn_d.state << " WRITE FLAG: " << write_flag << endl;
     if(vpn_d.state == 6){
+        assert(vpn_d.pte->write_enable == 0);
         if(write_flag){
             vpn_d.pte->read_enable = 1;
             vpn_d.pte->write_enable = 1;
@@ -426,14 +430,12 @@ int vm_fault(const void* addr, bool write_flag){
         copy_to_refs(&vpn_d);
     }
     if(vpn_d.state == 4){
-
         int ppn = reserve_ppn(vpn, write_flag);
         
         auto &cur = vpn_data_tables[current_pid][vpn];
         int status = 0;
         if(cur.filename == ""){
             status = file_read(nullptr, cur.block, ppn_to_ptr(ppn));
-            
         }
         else{
             status = file_read(cur.filename.c_str(), cur.block, ppn_to_ptr(ppn));
@@ -442,8 +444,8 @@ int vm_fault(const void* addr, bool write_flag){
             ppn_clock[vpn_d.pte->ppage].valid = false;
             ppn_clock[vpn_d.pte->ppage].referenced = true;
             cur.valid = false;
-            cur.pte->write_enable = false;
-            cur.pte->read_enable = false;
+            cur.pte->write_enable = 0;
+            cur.pte->read_enable = 0;
             return -1;
         }
     }
