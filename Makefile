@@ -16,7 +16,7 @@ PAGER_SOURCES=vm_pager.cpp
 # Generate the names of the pager's object files
 PAGER_OBJS=${PAGER_SOURCES:.cpp=.o}
 
-all: pager test1 test2 test3 test4 test5 test6 testlab1
+all: pager test1 test2 test3 test4 test5 test6 testlab1 testbig
 
 # Compile the pager and tag this compilation
 pager: ${PAGER_OBJS} ${LIBVMPAGER}
@@ -42,7 +42,10 @@ test5: test5.4.cpp ${LIBVMAPP}
 test6: test6.4.cpp ${LIBVMAPP}
 	${CC} -o $@ $^ -ldl
 
-testlab1: testlab1.2.cpp ${LIBVMAPP}
+testlab1: testlab1.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
+testbig: testbig.4.cpp ${LIBVMAPP}
 	${CC} -o $@ $^ -ldl
 
 # Generic rules for compiling a source file to an object file
@@ -52,4 +55,4 @@ testlab1: testlab1.2.cpp ${LIBVMAPP}
 	${CC} -c $<
 
 clean:
-	rm -f ${PAGER_OBJS} pager test1 test2 test3 test4
+	rm -f ${PAGER_OBJS} pager test1 test2 test3 test4 testbig
