@@ -14,7 +14,7 @@ int main()
     char* filename = static_cast<char *>(vm_map(nullptr, 0));
 
     /* Write the name of the file that will be mapped */
-    strcpy(filename, "lampson83.txt");
+    strcpy(filename, "llampson83.txt");
     cout << "filename successfully set to " << filename << endl;
 
     cout << "mapped swap file correctly" << endl;
