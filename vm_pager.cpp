@@ -67,7 +67,7 @@ struct vpn_data{
     bool valid = false;
     // bool dirty = false;
     bool resident = false;
-    char filename[VM_PAGESIZE];
+    std::string filename = "";
     int block = 0;
 };
 
@@ -116,6 +116,15 @@ int clock_index = 0;
 // }
 
 // HELPER FUNCTIONS 
+
+void print_mem(int index){
+    cout << "PRINTING OUT INDEX: " << index << endl;
+    for(int i = 0; i<VM_PAGESIZE; i++){
+        cout << static_cast<char*>(vm_physmem) + ((index * VM_PAGESIZE) + i);
+    }
+    cout << endl;
+}
+
 int translate_addr(const void* addr){
     if(reinterpret_cast<const uintptr_t>(addr) < reinterpret_cast<const uintptr_t>(VM_ARENA_BASEADDR)) return -1;
     if(reinterpret_cast<const uintptr_t>(addr) >= reinterpret_cast<const uintptr_t>(VM_ARENA_BASEADDR) + VM_ARENA_SIZE) return -1;
@@ -124,8 +133,48 @@ int translate_addr(const void* addr){
     return index / VM_PAGESIZE;
 }
 
+int read_filename_index(const void* addr){
+
+    const uintptr_t index = reinterpret_cast<const uintptr_t>(addr) - reinterpret_cast<const uintptr_t>(VM_ARENA_BASEADDR);
+    return index % VM_PAGESIZE;
+}
+
+// returns "" if error and filename if success
+std::string read_filename(const char* vaddr){
+    std::string output = "";
+    
+    int fn_vpn = translate_addr(vaddr);
+    if(fn_vpn == -1) return nullptr;
+    int fn_index = read_filename_index(vaddr);
+
+    if(page_table_base_register[fn_vpn].read_enable == 0){
+        vm_fault(vaddr, 0);
+    }
+
+    int fn_ppn = page_table_base_register[fn_vpn].ppage;
+    const char* physmem = static_cast<const char*>(vm_physmem);
+
+    while(*(physmem+(fn_ppn*VM_PAGESIZE + fn_index)) != 0){
+        if(fn_index >= VM_PAGESIZE){           
+            fn_vpn++;
+            fn_index = 0;
+            if(page_table_base_register[fn_vpn].read_enable == 0){
+                if(vm_fault(vaddr, 0) == -1){
+                    return "";
+                }
+            }
+            fn_ppn = page_table_base_register[fn_vpn].ppage;
+        }
+        output += *(physmem + (fn_ppn*VM_PAGESIZE + fn_index));
+        fn_index++;
+    }
+    return output;
+}
+
+
+
 void copy_to_refs(vpn_data* model){
-    if(model->filename[0] == 0) return;
+    if(model->filename == "") return;
     auto &ref_list = file_reservations[model->filename][model->block];
 
     for(auto &cur : ref_list){
@@ -274,11 +323,11 @@ int evict(){
         cur_vpn->state = 4;
     }
     if(toWrite){
-        if(writeVpn->filename[0] == 0){        
+        if(writeVpn->filename == ""){        
             file_write(nullptr, writeVpn->block, ppn_to_ptr(clock_index));
         } // two VPNs are written
         else{
-            file_write(writeVpn->filename, writeVpn->block, ppn_to_ptr(clock_index));
+            file_write(writeVpn->filename.c_str(), writeVpn->block, ppn_to_ptr(clock_index));
         }
     }
     clear_clock(clock_index);
@@ -341,16 +390,11 @@ int reserve_ppn(int vpn, bool write_flag=true){
 
     
 
-    if(model_page.filename[0] == 0){
+    if(model_page.filename == ""){
         ppn_clock[ppn].vpn_list.push_back(&model_page);
     }
     else{
         copy_to_refs(&vpn_data_tables[current_pid][vpn]);
-        // cout << "printing file res contents" << endl;
-        // for(auto &a: file_reservations[model_page.filename][model_page.block]){
-        //     cout << a->filename << " " << a->block << endl;
-        // }
-        // ppn_clock[ppn].vpn_list.push_back(&model_page);
         ppn_clock[ppn].vpn_list = file_reservations[model_page.filename][model_page.block];
     }
 
@@ -389,12 +433,11 @@ int vm_fault(const void* addr, bool write_flag){
         int ppn = reserve_ppn(vpn, write_flag);
         
         auto &cur = vpn_data_tables[current_pid][vpn];
-        if(cur.filename[0] == 0){
+        if(cur.filename == ""){
             file_read(nullptr, cur.block, ppn_to_ptr(ppn));
         }
         else{
-            // TODO: what happens if file_read is -1?
-            file_read(cur.filename, cur.block, ppn_to_ptr(ppn));
+            file_read(cur.filename.c_str(), cur.block, ppn_to_ptr(ppn));
         }
     }
     if(vpn_d.state == 3){
@@ -405,8 +448,17 @@ int vm_fault(const void* addr, bool write_flag){
         copy_to_refs(&vpn_d);
     }
     if(vpn_d.state == 1){
+        // cout << "before:" << endl;
+        // print_mem(1);
+        // cout << endl;
         if(write_flag){
-            reserve_ppn(vpn, write_flag);
+            int ppn = reserve_ppn(vpn, write_flag);
+            // zero new ppn out
+            memset(ppn_to_ptr(ppn), 0, VM_PAGESIZE);
+            // cout << "after:" << endl;
+            // print_mem(0);
+            // print_mem(1);
+            // cout << endl;
         }
     }
     if(vpn_d.state == 0){
@@ -479,7 +531,7 @@ void vm_destroy(){
         if(!cur.valid){
             continue;
         }
-        if(cur.filename[0] == 0){
+        if(cur.filename == ""){
             if(swap_reservations[cur.block]){
                 swap_reservations[i] = -1;
                 if(cur.resident){
@@ -563,26 +615,33 @@ void* vm_map(const char* filename, unsigned int block){
         if(reserved_block == -1) return nullptr;
         int vpn = reserve_next_vpn(reserved_block);
         if(vpn == -1) return nullptr;
-
-        std::memset(vpn_data_tables[current_pid][vpn].filename, 0, sizeof(vpn_data_tables[current_pid][vpn].filename));
+        vpn_data_tables[current_pid][vpn].filename = "";
+        //std::memset(vpn_data_tables[current_pid][vpn].filename, 0, sizeof(vpn_data_tables[current_pid][vpn].filename));
         return vpn_to_ptr(vpn);
     } else { // FILE BACKED
-        // see if virtual address is available
-        int fn_vpn = translate_addr(filename);
-        if(fn_vpn == -1) return nullptr;
+        
+        // FIND FILENAME TO BE SET
 
-        if(page_table_base_register[fn_vpn].read_enable == 0){
-            vm_fault(filename, 0);
-        }
-        int fn_ppn = page_table_base_register[fn_vpn].ppage;
+        //int fn_vpn = translate_addr(filename);
+        //if(fn_vpn == -1) return nullptr;
+
+        // if(page_table_base_register[fn_vpn].read_enable == 0){
+        //     vm_fault(filename, 0);
+        // }
+        
+        // int fn_ppn = page_table_base_register[fn_vpn].ppage;
 
         // copy filename into vpn data
-        const char* filen = static_cast<const char*>(static_cast<const char*>(vm_physmem) + (fn_ppn*VM_PAGESIZE));
+        //const char* filen = static_cast<const char*>(static_cast<const char*>(vm_physmem) + (fn_ppn*VM_PAGESIZE));
+        std::string filen = read_filename(filename);
+
+        if(filen == "") return nullptr;
+        cout << "FILENAME SET TO " << filen << endl;
 
         int vpn = reserve_next_vpn(block);
         if(vpn == -1) return nullptr;
         
-        strcpy(vpn_data_tables[current_pid][vpn].filename, filen);
+        vpn_data_tables[current_pid][vpn].filename = filen;
 
         
         auto &fr = file_reservations[filen][block];
