@@ -11,3 +11,17 @@ test6.4.cpp
 testlab1.4.cpp
 testlab2.4.cpp
 testlab3.4.cpp
+testdestroy.4.cpp
+testbig.4.cpp
+testfork.4.cpp
+testfile.4.cpp
+testfork2.4.cpp
+testforkmore.4.cpp
+testextra.4.cpp
+testbad1.4.cpp
+testbad2.4.cpp
+testbad3.4.cpp
+testbad4.4.cpp
+testbad5.4.cpp
+testbad6.4.cpp
+testbigfork.4.cpp
