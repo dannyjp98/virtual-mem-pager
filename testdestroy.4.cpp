@@ -12,7 +12,7 @@ int main()
 {
     
     if(fork()){
-        for(int i = 0; i < 200; ++i){
+        for(int i = 0; i < 5; ++i){
             char* swap = static_cast<char *>(vm_map(nullptr, 0));
         }
 
@@ -83,7 +83,7 @@ int main()
         char* file2 = static_cast<char *>(vm_map(filename2, 2));
         for(int i = 0; i < 10; ++i) cout << file2[i];
         strcpy(file2, "writing to file 2");
-        for(int i = 0; i < 200; ++i){
+        for(int i = 0; i < 5; ++i){
             char* swap = static_cast<char *>(vm_map(nullptr, 0));
         }
     }

@@ -81,6 +81,9 @@ testfile: testfile.4.cpp ${LIBVMAPP}
 testextra: testextra.4.cpp ${LIBVMAPP}
 	${CC} -o $@ $^ -ldl
 
+testvpnlist: testvpnlist.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
 testfork: testfork.4.cpp ${LIBVMAPP}
 	${CC} -o $@ $^ -ldl
 
