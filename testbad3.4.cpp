@@ -10,16 +10,25 @@ using std::endl;
 
 int main()
 {
-    auto *page0 = static_cast<char *>(vm_map(nullptr, 0));
-    cout << "here" << endl;
-    char* filename = page0 + 4*VM_PAGESIZE + 5;
-    // char* filename = page0 + VM_PAGESIZE - VM_PAGESIZE;
-    cout << "before strcpy" << endl;    
-    strcpy(filename, "lampson83.txt"); // triggers faults for both page 0 and page 1
-    cout << "after strcpy" << endl;
-    auto *file = static_cast<char *>(vm_map(filename, 0));
 
+    char* filename = "data1.bin";
+    try {
+        auto *file = static_cast<char *>(vm_map(filename, 0));
+        for (unsigned int i=0; i<1930; i++) {
+            cout << file[i];
+        }
+    } catch (...) {
+        cout << "bugged out" << endl;
+    }
+
+    char* filename1 = static_cast<char *>(vm_map(nullptr, 0));
+    strcpy(filename1, "data3.bin");
+
+    auto *file1 = static_cast<char *>(vm_map(filename1, 0));
+    strcpy(file1, "data3.bin");
+
+    auto *file2 = static_cast<char *>(vm_map(file1, 0));
     for (unsigned int i=0; i<1930; i++) {
-	    cout << file[i];
+            cout << file2[i];
     }
 }

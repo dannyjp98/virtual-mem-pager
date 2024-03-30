@@ -96,6 +96,13 @@ testforkmore: testforkmore.4.cpp ${LIBVMAPP}
 testforkextra: testforkextra.4.cpp ${LIBVMAPP}
 	${CC} -o $@ $^ -ldl
 
+testswapmore: testswapmore.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
+testvpnmore: testvpnmore.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
+
 # Generic rules for compiling a source file to an object file
 %.o: %.cpp
 	${CC} -c $<
