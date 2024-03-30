@@ -93,6 +93,9 @@ testfork2: testfork2.4.cpp ${LIBVMAPP}
 testforkmore: testforkmore.4.cpp ${LIBVMAPP}
 	${CC} -o $@ $^ -ldl
 
+testforkextra: testforkextra.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
 # Generic rules for compiling a source file to an object file
 %.o: %.cpp
 	${CC} -c $<
