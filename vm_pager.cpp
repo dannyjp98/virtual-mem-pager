@@ -103,7 +103,7 @@ struct PPN_data{
 
 std::vector<PPN_data> ppn_clock;
 std::deque<int> clock_q;
-int clock_index = 0;
+// int clock_index = 0;
 
 void removePPN(int ppn){
     for(int i = 0; i<clock_q.size(); i++){
@@ -215,8 +215,6 @@ void clear_clock(int ppn){
     ppn_clock[ppn].swap_vpn = nullptr;
     ppn_clock[ppn].filename = "";
     ppn_clock[ppn].block = 0;
-    // removePPN(ppn);
-    
 }
 
 void* ppn_to_ptr(int ppn){
@@ -281,55 +279,58 @@ void vm_switch(pid_t pid){
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 int evict(){
     // clock algorithm for eviction
-    while(clock_index == 0 || ppn_clock[clock_index].referenced == true){
-        if(clock_index == 0){
-            clock_index = 1;
-            continue;
-        } 
+    // while(clock_index == 0 || ppn_clock[clock_index].referenced == true){
+    //     if(clock_index == 0){
+    //         clock_index = 1;
+    //         continue;
+    //     } 
 
-        auto cur = ppn_clock[clock_index];
-        // clock changes reference - modify other vp
-        ppn_clock[clock_index].referenced = false;
+    //     auto cur = ppn_clock[clock_index];
+    //     // clock changes reference - modify other vp
+    //     ppn_clock[clock_index].referenced = false;
 
-        if(ppn_clock[clock_index].filename == ""){ // swap backed
-            auto vpn_d = ppn_clock[clock_index].swap_vpn;
-            if(vpn_d->state == 5){
-                vpn_d->state = 6;
-            }
-            if(vpn_d->state == 2){
-                vpn_d->state = 3;
-            }
-            vpn_d->pte->read_enable = 0;
-            vpn_d->pte->write_enable = 0;
-        }   
-        else{
-            auto &ref_list = file_reservations[ppn_clock[clock_index].filename][ppn_clock[clock_index].block];
+    //     if(ppn_clock[clock_index].filename == ""){ // swap backed
+    //         auto vpn_d = ppn_clock[clock_index].swap_vpn;
+    //         if(vpn_d->state == 5){
+    //             vpn_d->state = 6;
+    //         }
+    //         if(vpn_d->state == 2){
+    //             vpn_d->state = 3;
+    //         }
+    //         vpn_d->pte->read_enable = 0;
+    //         vpn_d->pte->write_enable = 0;
+    //     }   
+    //     else{
+    //         auto &ref_list = file_reservations[ppn_clock[clock_index].filename][ppn_clock[clock_index].block];
             
-            for(auto vpn_d : ref_list){
+    //         for(auto vpn_d : ref_list){
+    //             if(vpn_d->state == 5){
+    //                 vpn_d->state = 6;
+    //             }
+    //             if(vpn_d->state == 2){
+    //                 vpn_d->state = 3;
+    //             }
+    //             vpn_d->pte->read_enable = 0;
+    //             vpn_d->pte->write_enable = 0;
+    //         }
+            
+    //     }
+    //     clock_index = (clock_index + 1) % ppn_clock.size();
+    // }
+    
+    while(!clock_q.empty()){
+        int cur_ppn = clock_q.front();
+        if(ppn_clock[clock_q.front()].referenced == false) break;
+        else{
+            ppn_clock[clock_q.front()].referenced = false;
+
+            clock_q.pop_front();
+            clock_q.push_back(cur_ppn);
+
+            if(ppn_clock[cur_ppn].filename == ""){ // swap backed
+                auto vpn_d = ppn_clock[cur_ppn].swap_vpn;
                 if(vpn_d->state == 5){
                     vpn_d->state = 6;
                 }
@@ -338,28 +339,47 @@ int evict(){
                 }
                 vpn_d->pte->read_enable = 0;
                 vpn_d->pte->write_enable = 0;
+            }   
+            else{
+                auto &ref_list = file_reservations[ppn_clock[cur_ppn].filename][ppn_clock[cur_ppn].block];
+                
+                for(auto vpn_d : ref_list){
+                    if(vpn_d->state == 5){
+                        vpn_d->state = 6;
+                    }
+                    if(vpn_d->state == 2){
+                        vpn_d->state = 3;
+                    }
+                    vpn_d->pte->read_enable = 0;
+                    vpn_d->pte->write_enable = 0;
+                }
             }
-            
         }
-        clock_index = (clock_index + 1) % ppn_clock.size();
     }
-    auto &victim = ppn_clock[clock_index];
+    
+    int ppn_to_evict = clock_q.front();
+    clock_q.pop_front();
+
+    auto &victim = ppn_clock[ppn_to_evict];
+    //ppn_clock[clock_index];
     // copy data back to disk
 
     if(victim.filename == ""){ // swap backed
         auto cur_vpn = victim.swap_vpn;
         if(ppn_clock[cur_vpn->pte->ppage].dirty){
-            file_write(nullptr, cur_vpn->block, ppn_to_ptr(clock_index));
+            file_write(nullptr, cur_vpn->block, ppn_to_ptr(ppn_to_evict));
         }
         cur_vpn->resident = 0;
         cur_vpn->pte->read_enable = 0;
         cur_vpn->pte->write_enable = 0;
         cur_vpn->state = 4;
     } else {
-        auto &ref_list = file_reservations[ppn_clock[clock_index].filename][ppn_clock[clock_index].block];
+        auto &ref_list = file_reservations[ppn_clock[ppn_to_evict].filename][ppn_clock[ppn_to_evict].block];
+        bool written = false;
         for(auto& cur_vpn : ref_list){
-            if(ppn_clock[cur_vpn->pte->ppage].dirty){
-                file_write(ppn_clock[cur_vpn->pte->ppage].filename.c_str(), ppn_clock[cur_vpn->pte->ppage].block, ppn_to_ptr(clock_index));
+            if(ppn_clock[cur_vpn->pte->ppage].dirty && !written){
+                file_write(ppn_clock[cur_vpn->pte->ppage].filename.c_str(), ppn_clock[cur_vpn->pte->ppage].block, ppn_to_ptr(ppn_to_evict));
+                written=true;
             }
             cur_vpn->resident = 0;
             cur_vpn->pte->read_enable = 0;
@@ -367,11 +387,9 @@ int evict(){
             cur_vpn->state = 4;
         }
     }
-    clear_clock(clock_index);
-    //cout << "EVICTED " << clock_index << endl;
-    int index_to_evict = clock_index;
-    clock_index = (clock_index + 1) % ppn_clock.size();
-    return index_to_evict;
+    clear_clock(ppn_to_evict);
+    //cout << "EVICTED " << ppn_to_evict << endl;
+    return ppn_to_evict;
 }
 
 // gets free ppn or makes a slot if not available
@@ -393,6 +411,7 @@ int reserve_ppn(int vpn, bool write_flag=true){
     }
 
     //-------------SET---------//
+    clock_q.push_back(ppn);
 
     auto &model_page = vpn_data_tables[current_pid][vpn];
 
@@ -511,37 +530,6 @@ int vm_fault(const void* addr, bool write_flag){
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 void vm_destroy(){
 // clear up
 
@@ -572,6 +560,7 @@ void vm_destroy(){
                 swap_reservations[i] = -1;
                 if(cur.resident){
                     clear_clock(cur.pte->ppage);
+                    removePPN(cur.pte->ppage);
                 }
             }
         }

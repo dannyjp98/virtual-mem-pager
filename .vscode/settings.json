@@ -54,6 +54,7 @@
         "vector": "cpp",
         "algorithm": "cpp",
         "cassert": "cpp",
-        "execution": "cpp"
+        "execution": "cpp",
+        "deque": "cpp"
     }
 }
