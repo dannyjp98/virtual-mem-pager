@@ -102,6 +102,9 @@ testswapmore: testswapmore.4.cpp ${LIBVMAPP}
 testvpnmore: testvpnmore.4.cpp ${LIBVMAPP}
 	${CC} -o $@ $^ -ldl
 
+testcomprehensivemore: testcomprehensivemore.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
 
 # Generic rules for compiling a source file to an object file
 %.o: %.cpp
