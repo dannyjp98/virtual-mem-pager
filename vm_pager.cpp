@@ -152,7 +152,7 @@ int read_filename_index(const void* addr){
 std::string read_filename(const char* vaddr){
     std::string output = "";
     int fn_vpn = translate_addr(vaddr);
-    if(fn_vpn == -1) return nullptr;
+    if(fn_vpn == -1) return "";
     int fn_index = read_filename_index(vaddr);
 
     if(page_table_base_register[fn_vpn].read_enable == 0){

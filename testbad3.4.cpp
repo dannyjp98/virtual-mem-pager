@@ -12,6 +12,7 @@ int main()
 {
 
     char* filename = "data1.bin";
+    cout << "here" << endl;
     try {
         auto *file = static_cast<char *>(vm_map(filename, 0));
         for (unsigned int i=0; i<1930; i++) {
@@ -20,6 +21,7 @@ int main()
     } catch (...) {
         cout << "bugged out" << endl;
     }
+    cout << "beyond" << endl;
 
     char* filename1 = static_cast<char *>(vm_map(nullptr, 0));
     strcpy(filename1, "data3.bin");
