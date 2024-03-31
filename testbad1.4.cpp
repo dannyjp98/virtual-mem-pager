@@ -23,9 +23,9 @@ int main()
         for (unsigned int i=0; i<1930; i++) {
             cout << file[i];
         } 
+        cout << "got past end";
     }
     else{
-        auto *page0 = static_cast<char *>(vm_map(nullptr, 0));
         cout << "here 2" << endl;
     }
 }

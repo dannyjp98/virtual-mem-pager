@@ -102,6 +102,15 @@ testswapmore: testswapmore.4.cpp ${LIBVMAPP}
 testvpnmore: testvpnmore.4.cpp ${LIBVMAPP}
 	${CC} -o $@ $^ -ldl
 
+testfilename: testfilename.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
+testfilename2: testfilename2.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
+testcomprehensive: testcomprehensive.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
 testcomprehensivemore: testcomprehensivemore.4.cpp ${LIBVMAPP}
 	${CC} -o $@ $^ -ldl
 

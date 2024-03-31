@@ -11,16 +11,12 @@ using std::endl;
 int main()
 {
 
-    char* filename = "data1.bin";
-    cout << "here" << endl;
-    try {
-        auto *file = static_cast<char *>(vm_map(filename, 0));
-        for (unsigned int i=0; i<1930; i++) {
-            cout << file[i];
-        }
-    } catch (...) {
-        cout << "bugged out" << endl;
+
+    auto *file = static_cast<char *>(vm_map("data1.bin", 0));
+    for (unsigned int i=0; i<1930; i++) {
+        cout << file[i];
     }
+
     cout << "beyond" << endl;
 
     char* filename1 = static_cast<char *>(vm_map(nullptr, 0));

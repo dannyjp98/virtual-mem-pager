@@ -18,6 +18,8 @@ testbad1.4.cpp
 testbad2.4.cpp
 testbad3.4.cpp
 testbad4.4.cpp
+testfilename.4.cpp
+testfilename2.4.cpp
 testbigfork.4.cpp
 testvpnlist.4.cpp
 testforkmap.4.cpp
