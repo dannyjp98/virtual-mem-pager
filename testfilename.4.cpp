@@ -18,4 +18,9 @@ int main()
     char* file2 = static_cast<char *>(vm_map(filename, 0));
     strcpy(file2, "asdasdasd");
     cout << "finished test" << endl;
+
+    char* bigname = static_cast<char *>(vm_map(nullptr, 0));
+    memset(bigname, 'h', VM_PAGESIZE);
+    char* bignamefile = static_cast<char *>(vm_map(bigname, 0));
+    cout << bignamefile[0];
 }

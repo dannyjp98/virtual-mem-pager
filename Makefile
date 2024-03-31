@@ -114,7 +114,14 @@ testcomprehensive: testcomprehensive.4.cpp ${LIBVMAPP}
 testcomprehensivemore: testcomprehensivemore.4.cpp ${LIBVMAPP}
 	${CC} -o $@ $^ -ldl
 
+testallfile: testallfile.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
 
+teststress: teststress.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
+teststress2: teststress2.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
 # Generic rules for compiling a source file to an object file
 %.o: %.cpp
 	${CC} -c $<
