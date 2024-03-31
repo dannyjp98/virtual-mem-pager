@@ -13,67 +13,28 @@
 using std::cout;
 using std::endl;
 
-/*
-each process has its own 1 level page table (1D array)
-when a diff process runs -> swap to its page table (with pid - hashmap? pid to page table array)
-can map to physical mem and also disk
-
-MMU looks in our page table. If read/write not granted, we handle fault ourselves.
-1. VPN 1 maps to PPN ?? -> needs to fault to bring in to page table
-2. incorrect r/w bits? check on EVERY load or store -> fault
-
-PTE has physical page number, r, and w
-
-
-
-Page Table: array of struct PTE{PPN, R, W}, index is VPN
-Page Table Mapping: hashmap from PID to Page Table
-
-*not responsible for entire virtual address space, ONLY arena x6000....
-
-Every load and store, references MMU. MMU references PTBR
-arena refers to whatever the user has allocated and can use.
-
-copy-on-write:
-
-usually swap space = physical mem
-eager swap preservation
-
-arena size = 0b1000000000000000000000000
-page entry = 0b1000000000000000000000000
-
-// STATE DIAGRAM
-
-1. what states can page be in? no read + no write, read + no write, read + write
-2. what info does each page track? read, write, resident, referenced?
-3. what events transition states? read fault, write fault, ..
-
-everytime we reference something thats currently unreferenced -> trigger a fault
-
-recommendations:
-
-*/
-
-// #define VM_PAGES 256
 int VM_PAGES;
 static pid_t current_pid = 0;
 
-
-
 struct vpn_data{
-    //ppage (literal address)
-    //read_enable
-    //write_enable
-    page_table_entry_t* pte;
+    page_table_entry_t* pte = nullptr;
     int state = 0;
     bool valid = false;
-    // bool dirty = false;
     bool resident = false;
     std::string filename = "";
+    bool is_file_backed = false;
     int block = 0;
 };
 
-//page table is 256 (arena size / page size)
+struct PPN_data{
+    bool valid = false;
+    bool referenced = false;
+    bool dirty = false;
+    std::string filename = "";
+    int block = 0;
+    bool is_file_backed = false;
+    vpn_data* swap_vpn = nullptr;
+};
 
 std::unordered_map<pid_t, page_table_entry_t*> page_tables;
 std::unordered_map<pid_t, vpn_data*> vpn_data_tables;
@@ -81,59 +42,22 @@ std::unordered_map<pid_t, vpn_data*> vpn_data_tables;
 int pm_memory_pages = 0;
 int vm_swap_blocks = 0;
 
-std::vector<pid_t> swap_reservations; // pid -> swapfile block
+std::vector<pid_t> swap_reservations;
 std::unordered_map<std::string, std::unordered_map<int,std::vector<vpn_data*>>> file_reservations;
-
-
-// VPN PT bookkeeping //
-
-
-// PPN bookkeeping //
-
-struct PPN_data{
-    bool valid = false;
-    // std::vector<vpn_data*> vpn_list;
-    bool referenced = false;
-    bool dirty = false;
-
-    std::string filename = "";
-    int block = 0;
-    vpn_data* swap_vpn = nullptr;
-};
 
 std::vector<PPN_data> ppn_clock;
 std::deque<int> clock_q;
-// int clock_index = 0;
 
 void removePPN(int ppn){
+    bool found = false;
     for(int i = 0; i<clock_q.size(); i++){
         if(clock_q[i] == ppn){
+            assert(!found);
             clock_q.erase(clock_q.begin() + i);
-            return;
+            found = true;
         }
     }
 }
-
-// make
-
-//can optimise with map if have speed concerns
-
-// block permissions for swap files: block -> pid authority hashmap
-// buf must be size of a page exactly
-// void populate_physmem(int block, char* buf){
-//     // assert(block < memory_pages);
-
-//     //zero out memory
-//     bzero(reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(vm_physmem) + (VM_PAGESIZE * block)), VM_PAGESIZE);
-
-//     //populate with buffer
-//     for(auto i = 0; i < VM_PAGESIZE; ++i){
-//         static_cast<char *>(vm_physmem)[i] = buf[i];
-//     }
-// }
-
-// HELPER FUNCTIONS 
-
 
 int translate_addr(const void* addr){
     if(reinterpret_cast<const uintptr_t>(addr) < reinterpret_cast<const uintptr_t>(VM_ARENA_BASEADDR)) return -1;
@@ -148,42 +72,42 @@ int read_filename_index(const void* addr){
     return index % VM_PAGESIZE;
 }
 
-// returns "" if error and filename if success
-std::string read_filename(const char* vaddr){
+std::pair<std::string, bool> read_filename(const char* vaddr){
     std::string output = "";
     int fn_vpn = translate_addr(vaddr);
-    if(fn_vpn == -1) return "";
+    if(fn_vpn == -1) return {"", false};
     int fn_index = read_filename_index(vaddr);
 
     if(page_table_base_register[fn_vpn].read_enable == 0){
-        vm_fault(vaddr, 0);
+        if(vm_fault(vaddr, false) == -1) return {"", false};
     }
+
+    assert(page_table_base_register[fn_vpn].read_enable == 1);
 
     int fn_ppn = page_table_base_register[fn_vpn].ppage;
     const char* physmem = static_cast<const char*>(vm_physmem);
-    while(*(physmem+(fn_ppn*VM_PAGESIZE + fn_index)) != 0){
+    while(*(physmem + (fn_ppn*VM_PAGESIZE) + fn_index) != 0){
         output += *(physmem + (fn_ppn*VM_PAGESIZE + fn_index));
         fn_index++;
 
         if(fn_index >= VM_PAGESIZE){           
             fn_vpn++;
             fn_index = 0;
+            auto new_addr = reinterpret_cast<const char*>(VM_ARENA_BASEADDR) + fn_vpn * VM_PAGESIZE;
             if(page_table_base_register[fn_vpn].read_enable == 0){
-                if(vm_fault(vaddr, 0) == -1){
-                    return "";
-                }
+                if(vm_fault(new_addr, false) == -1) return {"", false}; // BUG: vaddr needs to be to the new vpn
             }
+            assert(page_table_base_register[fn_vpn].read_enable == 1);
             fn_ppn = page_table_base_register[fn_vpn].ppage;
         }
     }
-    return output;
+    return {output, true};
 }
 
-
-
 void copy_to_refs(vpn_data* model){
-    if(model->filename == "") return;
+    if(model->is_file_backed == false) return;
     auto &ref_list = file_reservations[model->filename][model->block];
+    if(ref_list.empty()) return;
 
     for(auto &cur : ref_list){
         if(model == cur) continue;
@@ -196,17 +120,15 @@ void copy_to_refs(vpn_data* model){
         cur->pte->write_enable = model->pte->write_enable;
         cur->pte->ppage = model->pte->ppage;
     }
-
-    //push in other vpns to vpn list
 }
 
 void clear_clock(int ppn){
     ppn_clock[ppn].valid = false;
     ppn_clock[ppn].dirty = false;
     ppn_clock[ppn].referenced = false;
-    // ppn_clock[ppn].vpn_list = {};
     ppn_clock[ppn].swap_vpn = nullptr;
     ppn_clock[ppn].filename = "";
+    ppn_clock[ppn].is_file_backed = false;
     ppn_clock[ppn].block = 0;
 }
 
@@ -221,98 +143,39 @@ void* vptr_to_ptr(const void* addr){
 }
 
 void vm_init(unsigned int memory_pages, unsigned int swap_blocks){
-    // make zero page as 1st block
-    //char buffer[VM_PAGESIZE];
-    //bzero(buffer, VM_PAGESIZE);
     memset(vm_physmem, 0, VM_PAGESIZE);
-
     VM_PAGES = VM_ARENA_SIZE/VM_PAGESIZE;
-
-    //populate_physmem(0, buffer);
-
-    // configure mem pages and swap blocks
     pm_memory_pages = memory_pages;
     vm_swap_blocks = swap_blocks;
-    
     swap_reservations.resize(swap_blocks, -1);
-    
     ppn_clock.resize(memory_pages);
 }
 
 
 int vm_create(pid_t parent_pid, pid_t child_pid){
-    // initialize new page table for pid
     page_table_entry_t* arr = new page_table_entry_t[VM_PAGES];
     vpn_data* arr2 = new vpn_data[VM_PAGES];
-
     page_tables[child_pid] = arr;
     vpn_data_tables[child_pid] = arr2;
-
-    // clear
     for(int i = 0; i<VM_PAGES; i++){
         arr[i].ppage = 0;
         arr[i].read_enable = 0;
         arr[i].write_enable = 0;
         arr2[i].pte = &arr[i];
-        //arr[i].dirty = 0;
         arr2[i].resident = 0;
         arr2[i].valid = 0;
         arr2[i].state = 0;
     }
     return 0;
-    //check if we only return 0 for 4 credit
 }
 
 void vm_switch(pid_t pid){
-    // set current pid
     current_pid = pid;
-
-    // switch PTBR to be correct PT
     page_table_base_register = page_tables[pid];
 }
 
 
 int evict(){
-    // clock algorithm for eviction
-    // while(clock_index == 0 || ppn_clock[clock_index].referenced == true){
-    //     if(clock_index == 0){
-    //         clock_index = 1;
-    //         continue;
-    //     } 
-
-    //     auto cur = ppn_clock[clock_index];
-    //     // clock changes reference - modify other vp
-    //     ppn_clock[clock_index].referenced = false;
-
-    //     if(ppn_clock[clock_index].filename == ""){ // swap backed
-    //         auto vpn_d = ppn_clock[clock_index].swap_vpn;
-    //         if(vpn_d->state == 5){
-    //             vpn_d->state = 6;
-    //         }
-    //         if(vpn_d->state == 2){
-    //             vpn_d->state = 3;
-    //         }
-    //         vpn_d->pte->read_enable = 0;
-    //         vpn_d->pte->write_enable = 0;
-    //     }   
-    //     else{
-    //         auto &ref_list = file_reservations[ppn_clock[clock_index].filename][ppn_clock[clock_index].block];
-            
-    //         for(auto vpn_d : ref_list){
-    //             if(vpn_d->state == 5){
-    //                 vpn_d->state = 6;
-    //             }
-    //             if(vpn_d->state == 2){
-    //                 vpn_d->state = 3;
-    //             }
-    //             vpn_d->pte->read_enable = 0;
-    //             vpn_d->pte->write_enable = 0;
-    //         }
-            
-    //     }
-    //     clock_index = (clock_index + 1) % ppn_clock.size();
-    // }
-    
     while(!clock_q.empty()){
         int cur_ppn = clock_q.front();
         if(ppn_clock[clock_q.front()].referenced == false) break;
@@ -322,7 +185,7 @@ int evict(){
             clock_q.pop_front();
             clock_q.push_back(cur_ppn);
 
-            if(ppn_clock[cur_ppn].filename == ""){ // swap backed
+            if(ppn_clock[cur_ppn].is_file_backed == false){ // swap backed
                 auto vpn_d = ppn_clock[cur_ppn].swap_vpn;
                 if(vpn_d->state == 5){
                     vpn_d->state = 6;
@@ -354,10 +217,8 @@ int evict(){
     clock_q.pop_front();
 
     auto &victim = ppn_clock[ppn_to_evict];
-    //ppn_clock[clock_index];
-    // copy data back to disk
 
-    if(victim.filename == ""){ // swap backed
+    if(victim.is_file_backed == false){ // swap backed
         auto cur_vpn = victim.swap_vpn;
         if(ppn_clock[cur_vpn->pte->ppage].dirty){
             file_write(nullptr, cur_vpn->block, ppn_to_ptr(ppn_to_evict));
@@ -367,7 +228,6 @@ int evict(){
         cur_vpn->pte->write_enable = 0;
         cur_vpn->state = 4;
     } else {
-        // go through PPN to see
         if(ppn_clock[ppn_to_evict].dirty){
             file_write(ppn_clock[ppn_to_evict].filename.c_str(), ppn_clock[ppn_to_evict].block, ppn_to_ptr(ppn_to_evict));
         }
@@ -380,20 +240,13 @@ int evict(){
         }
     }
     clear_clock(ppn_to_evict);
-    //cout << "EVICTED " << ppn_to_evict << endl;
     return ppn_to_evict;
 }
 
-// gets free ppn or makes a slot if not available
 int reserve_ppn(int vpn, bool write_flag=true){
     int ppn = -1;
-    
-    //-------------GET LOWEST OR EVICT---------//
-    
-    // check for lowest empty ppn
     for(int i = 1; i < ppn_clock.size(); ++i){
         if(ppn_clock[i].valid == false){
-            // claim ppn i
             ppn = i;
             break;
         }
@@ -424,15 +277,15 @@ int reserve_ppn(int vpn, bool write_flag=true){
     ppn_clock[ppn].valid = true;
     ppn_clock[ppn].referenced = true;
 
-    if(model_page.filename == ""){
-        // ppn_clock[ppn].vpn_list.push_back(&model_page);
+    if(model_page.is_file_backed == false){
+        ppn_clock[ppn].is_file_backed = false;
         ppn_clock[ppn].filename = "";
         ppn_clock[ppn].block = model_page.block;
         ppn_clock[ppn].swap_vpn = &model_page;
     }
     else{
+        ppn_clock[ppn].is_file_backed = true;
         copy_to_refs(&vpn_data_tables[current_pid][vpn]);
-        // ppn_clock[ppn].vpn_list = file_reservations[model_page.filename][model_page.block];
         ppn_clock[ppn].filename = model_page.filename;
         ppn_clock[ppn].block = model_page.block;
         ppn_clock[ppn].swap_vpn = nullptr;
@@ -442,12 +295,8 @@ int reserve_ppn(int vpn, bool write_flag=true){
 }
 
 int vm_fault(const void* addr, bool write_flag){
-    // fetch vpn_data corresponding to addr
     int vpn = translate_addr(addr);
-    // TODO: vpn check if -1
-    if(vpn == -1){
-        return -1;
-    }
+    if(vpn == -1) return -1;
     auto &vpn_d = vpn_data_tables[current_pid][vpn];
     if(vpn_d.state == 6){
         if(write_flag){
@@ -475,7 +324,7 @@ int vm_fault(const void* addr, bool write_flag){
         
         auto &cur = vpn_data_tables[current_pid][vpn];
         int status = 0;
-        if(cur.filename == ""){
+        if(cur.is_file_backed == false){
             status = file_read(nullptr, cur.block, ppn_to_ptr(ppn));
         }
         else{
@@ -500,7 +349,6 @@ int vm_fault(const void* addr, bool write_flag){
     else if(vpn_d.state == 1){
         if(write_flag){
             int ppn = reserve_ppn(vpn, write_flag);
-            // zero new ppn out
             memset(ppn_to_ptr(ppn), 0, VM_PAGESIZE);
         }
     }
@@ -511,39 +359,15 @@ int vm_fault(const void* addr, bool write_flag){
     ppn_clock[vpn_d.pte->ppage].referenced = true;
 
     return 0;
-    
 }
 
-
-
-
-
 void vm_destroy(){
-// clear up
-
-//both:
-// remove vpns from clock vpn list
-//if clock vpn list empty, set valid to false
-
-//file:
-// file reservations
-//remove vpns from file reservations of given filename and block
-//if this map entry vecotr is size 0, remove from unordered map
-
-//swap:
-//remove from swap reservation
-//make another able to be allocated here
-
- //clear up memory for corresponding PID address space
-
-    // remove from file reservations
-
     for(int i = 0; i<VM_PAGES; i++){
         auto &cur = vpn_data_tables[current_pid][i];
         if(!cur.valid){
             continue;
         }
-        if(cur.filename == ""){
+        if(cur.is_file_backed == false){
             if(swap_reservations[cur.block]){
                 swap_reservations[cur.block] = -1;
                 if(cur.resident){
@@ -553,44 +377,23 @@ void vm_destroy(){
             }
         }
         else {
-            // auto &vec = file_reservations[cur.filename][cur.block];
             for(int i = 0; i < file_reservations[cur.filename][cur.block].size(); ++i){
                 if(&cur == file_reservations[cur.filename][cur.block][i]){
-                    // if(cur.resident){
-                    //     if(file_reservations[cur.filename][cur.block].size() == 1){
-                    //             clear_clock(cur.pte->ppage);
-                    //             erased = true;
-                    //     }
-                    // }
                     file_reservations[cur.filename][cur.block].erase(file_reservations[cur.filename][cur.block].begin() + i);
-                    // ppn_clock[cur.pte->ppage].vpn_list.erase(file_reservations[cur.filename][cur.block].begin() + i);
                     --i;
-
-                    // erase if empty vec
-                    // if(file_reservations[cur.filename][cur.block].size() == 0) file_reservations[cur.filename].erase(cur.block);
                 }
             }
         }
 
     }
 
-    // for(int i = 0; i<swap_reservations.size(); i++){
-    //     if(swap_reservations[i] == current_pid){
-    //         swap_reservations[i] = -1;
-    //     }
-    // }
-    //remove physical pages from memory: such as CLOCK
-    
     delete [] page_tables[current_pid];
     page_tables.erase(current_pid);
 
     delete [] vpn_data_tables[current_pid];
     vpn_data_tables.erase(current_pid);
-
-    //add fucntionlaioty for bpoth swap and file
 }
 
-// reserves spot in swap file
 int reserve_swap(){
     for(int i = 0; i<swap_reservations.size(); i++){
         if(swap_reservations[i] == -1){
@@ -598,7 +401,6 @@ int reserve_swap(){
             return i;
         }
     }
-    // no block available
     return -1;
 }
 
@@ -606,7 +408,6 @@ void* vpn_to_ptr(int vpn){
     return reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(VM_ARENA_BASEADDR) + (vpn * VM_PAGESIZE));
 }
 
-// reserves next vpn
 int reserve_next_vpn(int reserved_block){
     for(int i = 0; i < VM_PAGES; ++i){
         if(vpn_data_tables[current_pid][i].valid == false){
@@ -629,36 +430,23 @@ void* vm_map(const char* filename, unsigned int block){
         if(reserved_block == -1) return nullptr;
         int vpn = reserve_next_vpn(reserved_block);
         if(vpn == -1) return nullptr;
+        vpn_data_tables[current_pid][vpn].is_file_backed = false;
         vpn_data_tables[current_pid][vpn].filename = "";
-        //std::memset(vpn_data_tables[current_pid][vpn].filename, 0, sizeof(vpn_data_tables[current_pid][vpn].filename));
         return vpn_to_ptr(vpn);
     } else { // FILE BACKED
-        
-        // FIND FILENAME TO BE SET
+        auto filenamepair = read_filename(filename);
+        if(filenamepair.second == false){
+            // cout << "FILE MAP FAILED" << endl;
+            return nullptr;
+        }
 
-        //int fn_vpn = translate_addr(filename);
-        //if(fn_vpn == -1) return nullptr;
-
-        // if(page_table_base_register[fn_vpn].read_enable == 0){
-        //     vm_fault(filename, 0);
-        // }
-        
-        // int fn_ppn = page_table_base_register[fn_vpn].ppage;
-
-        // copy filename into vpn data
-        //const char* filen = static_cast<const char*>(static_cast<const char*>(vm_physmem) + (fn_ppn*VM_PAGESIZE));
-        std::string filen = read_filename(filename);
-        if(filen == "") return nullptr;
-
+        std::string filen = filenamepair.first;
         int vpn = reserve_next_vpn(block);
         if(vpn == -1) return nullptr;
         
+        vpn_data_tables[current_pid][vpn].is_file_backed = true;
         vpn_data_tables[current_pid][vpn].filename = filen;
-
-        // loop through clock and see if match
-
         auto &fr = file_reservations[filen][block];
-        // If reference exists already, copy it
         if(fr.size() != 0){
             page_tables[current_pid][vpn].ppage = fr[0]->pte->ppage;
             page_tables[current_pid][vpn].read_enable = fr[0]->pte->read_enable;
@@ -666,14 +454,9 @@ void* vm_map(const char* filename, unsigned int block){
 
             vpn_data_tables[current_pid][vpn].resident = fr[0]->resident;
             vpn_data_tables[current_pid][vpn].state = fr[0]->state;
-            vpn_data_tables[current_pid][vpn].valid = fr[0]->valid;
-            // add newly created vpn_data* to clock vpn_list
-            // if(vpn_data_tables[current_pid][vpn].resident){
-            //     ppn_clock[page_tables[current_pid][vpn].ppage].vpn_list.push_back(&vpn_data_tables[current_pid][vpn]);
-            // }            
+            vpn_data_tables[current_pid][vpn].valid = fr[0]->valid;       
         }
         else{ // NO OTHER EXISTING REFERENCE
-            // check if in clock? if no other reference
             bool toCopy = false;
             for(int i = 0; i < ppn_clock.size(); i++){
                 auto &cur = ppn_clock[i];

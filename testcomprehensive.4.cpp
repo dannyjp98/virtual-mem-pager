@@ -72,21 +72,21 @@ int main()
 
         vm_yield();
 
-        char* rootfile1 = static_cast<char *>(vm_map (swap1, 3));
-        char* sharedfile1 = static_cast<char *>(vm_map (swap1, 3));
-        cout << rootfile1[0] << endl; // move root file into memory
-        cout << sharedfile1[0] << endl; //move into physmemory
-        char* sharedfile2 = static_cast<char *>(vm_map (swap1, 3));
-        strcpy(rootfile1, "asdfasdfasd"); //make root file dirty
-        cout << sharedfile2[0] << endl; //move into physmemory
-        char* sharedfile3 = static_cast<char *>(vm_map (swap1, 3));
-        cout << sharedfile3[0] << endl; //move into physmemory
+        char* rootfile1a = static_cast<char *>(vm_map (swap1, 3));
+        char* sharedfile1a = static_cast<char *>(vm_map (swap1, 3));
+        cout << rootfile1a[0] << endl; // move root file into memory
+        cout << sharedfile1a[0] << endl; //move into physmemory
+        char* sharedfile2a = static_cast<char *>(vm_map (swap1, 3));
+        strcpy(rootfile1a, "asdfasdfasd"); //make root file dirty
+        cout << sharedfile2a[0] << endl; //move into physmemory
+        char* sharedfile3a = static_cast<char *>(vm_map (swap1, 3));
+        cout << sharedfile3a[0] << endl; //move into physmemory
 
-        char* swap3e = static_cast<char *>(vm_map(nullptr, 0));
-        strcpy(swap3e, "dsd.bin");
-        char* swap4e = static_cast<char *>(vm_map(nullptr, 0));
-        strcpy(swap4e, "dsggd.bin");
-        char* swap5e = static_cast<char *>(vm_map(nullptr, 0));
-        strcpy(swap5e, "dddddsd.bin");
+        char* swap3ea = static_cast<char *>(vm_map(nullptr, 0));
+        strcpy(swap3ea, "dsd.bin");
+        char* swap4ea = static_cast<char *>(vm_map(nullptr, 0));
+        strcpy(swap4ea, "dsggd.bin");
+        char* swap5ea = static_cast<char *>(vm_map(nullptr, 0));
+        strcpy(swap5ea, "dddddsd.bin");
     }
 }
