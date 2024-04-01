@@ -2,6 +2,9 @@ vm_pager.cpp
 vm_pager.h
 vm_arena.h
 vm_app.h
+teststress.4.cpp
+teststress2.4.cpp
+testallfile.4.cpp
 test1.4.cpp
 test2.4.cpp
 test4.4.cpp
@@ -10,14 +13,12 @@ testlab2.4.cpp
 testdestroy.4.cpp
 testbig.4.cpp
 testfork.4.cpp
-testfile.4.cpp
 testfork2.4.cpp
 testforkmore.4.cpp
-testextra.4.cpp
-testbad1.4.cpp
 testbad2.4.cpp
 testbad3.4.cpp
-testbad4.4.cpp
+testfilename.4.cpp
+testfilename2.4.cpp
 testbigfork.4.cpp
 testvpnlist.4.cpp
 testforkmap.4.cpp
@@ -25,4 +26,3 @@ testswapmore.4.cpp
 testvpnmore.4.cpp
 testcomprehensive.4.cpp
 testcomprehensivemore.4.cpp
-testinva.4.cpp

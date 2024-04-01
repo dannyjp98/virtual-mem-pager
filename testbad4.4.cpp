@@ -22,4 +22,5 @@ int main()
     for (unsigned int i=0; i<1930; i++) {
 	    cout << file[i];
     }
+    cout << "done" << endl;
 }
