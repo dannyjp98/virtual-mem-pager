@@ -16,7 +16,13 @@ testfilename2.4.cpp
 testbigfork.4.cpp
 testvpnlist.4.cpp
 testforkmap.4.cpp
-testswapmore.4.cpp
 testvpnmore.4.cpp
 testcomprehensive.4.cpp
 testcomprehensivemore.4.cpp
+teststressadv.4.cpp
+testcompadv.4.cpp
+testadv.4.cpp
+testbasicadv.4.cpp
+testdestroyadv.4.cpp
+testfileadv.4.cpp
+testforkmadv.4.cpp

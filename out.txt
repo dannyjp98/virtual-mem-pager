@@ -1,24 +1,12 @@
 Pager started with 4 physical memory pages
-vm_create	(39763, 34506)
+vm_create	(39763, 52667)
 vm_create returned 0
-vm_switch	(34506)
-					returning to (34506) with r|w pages:
-vm_map		(0x100d3b8e6, 0)
-vm_map returned 0x0
-					returning to (34506) with r|w pages:
-vm_map		(0x0, 0)
-vm_map returned 0x600000000
-					returning to (34506) with r|w pages:
-					r	vpage 0x60000	ppage 0x0
-vm_map		(0x600000000, 0)
-vm_map returned 0x600010000
-					returning to (34506) with r|w pages:
-					r	vpage 0x60000	ppage 0x0
-vm_fault	(0x600010000, write)
-FAULTING AT STATE 4
-file_read	(, 0)
-open: No such file or directory
-vm_fault returned -1
-					returning to (34506) with r|w pages:
-					r	vpage 0x60000	ppage 0x0
+vm_switch	(52667)
+					returning to (52667) with r|w pages:
+vm_create	(52667, 52668)
+vm_create returned 0
+					returning to (52667) with r|w pages:
+vm_destroy
+vm_switch	(52668)
+					returning to (52668) with r|w pages:
 vm_destroy

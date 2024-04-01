@@ -122,6 +122,28 @@ teststress: teststress.4.cpp ${LIBVMAPP}
 
 teststress2: teststress2.4.cpp ${LIBVMAPP}
 	${CC} -o $@ $^ -ldl
+
+teststressadv: teststressadv.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
+testcompadv: testcompadv.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
+testadv: testadv.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
+testbasicadv: testbasicadv.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
+testdestroyadv: testdestroyadv.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
+testfileadv: testfileadv.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
+testforkmadv: testforkmadv.4.cpp ${LIBVMAPP}
+	${CC} -o $@ $^ -ldl
+
 # Generic rules for compiling a source file to an object file
 %.o: %.cpp
 	${CC} -c $<
