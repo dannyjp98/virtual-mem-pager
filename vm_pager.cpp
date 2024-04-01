@@ -436,7 +436,6 @@ void* vm_map(const char* filename, unsigned int block){
     } else { // FILE BACKED
         auto filenamepair = read_filename(filename);
         if(filenamepair.second == false){
-            // cout << "FILE MAP FAILED" << endl;
             return nullptr;
         }
 
@@ -460,6 +459,7 @@ void* vm_map(const char* filename, unsigned int block){
             bool toCopy = false;
             for(int i = 0; i < ppn_clock.size(); i++){
                 auto &cur = ppn_clock[i];
+                if(!cur.is_file_backed || !cur.valid) continue;
                 if(cur.filename == filen && cur.block == block) // have match so copy
                 {
                     toCopy = true;
