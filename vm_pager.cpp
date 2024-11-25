@@ -151,7 +151,6 @@ void* vpn_to_ptr(int vpn){
     return reinterpret_cast<void*>(reinterpret_cast<const uintptr_t>(VM_ARENA_BASEADDR) + (vpn * VM_PAGESIZE));
 }
 
-
 // make a reservation in the swap file
 int reserve_swap(){
     for(int i = 0; i<swap_reservations.size(); i++){
@@ -181,6 +180,7 @@ int reserve_next_vpn(int reserved_block){
 }
 
 // CORE FUNCTIONS
+
 void vm_init(unsigned int memory_pages, unsigned int swap_blocks){
     memset(vm_physmem, 0, VM_PAGESIZE);
     VM_PAGES = VM_ARENA_SIZE/VM_PAGESIZE;
